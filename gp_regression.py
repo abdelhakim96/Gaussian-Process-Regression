@@ -33,9 +33,8 @@ def offline_sparse_gp_FITC(h,l,mu_0, y, x, xs,u):
 
 
 
-def online_sparse_gp_FITC(x, xs, y,h,l,u):
+def online_sparse_gp_FITC(x, xs,xn,yn, y,h,l,u):
     # Create covariance matrices
-
     Kff =  squared_exp_fun(h, l, x, x)
     Kfu =  squared_exp_fun(h, l, x, u)
     Kuu =  squared_exp_fun(h, l, u, u)
@@ -44,10 +43,19 @@ def online_sparse_gp_FITC(x, xs, y,h,l,u):
     Ksu = squared_exp_fun(h, l, xs, u)
     Kss = squared_exp_fun(h, l, xs, xs)
 
+    Kun =  squared_exp_fun(h, l, u, xn)    # matrix for data at latest time, t=n
+    Knu = squared_exp_fun(h, l, xn, u)
+    Knn = squared_exp_fun(h, l, xn, xn)
+
+    n= len(Kuu)
 
 
     Qff = Kfu @ np.linalg.inv(Kuu) @ Kuf
+    Qnn = Knu @ np.linalg.inv(Kuu) @ Kun
+
     delta_ff = np.diag((Kff - Qff)[0])
+
+    delta_nn = np.diag((Knn - Qnn)[0])
     m_u = 0
     m_s = 0
 
@@ -56,9 +64,20 @@ def online_sparse_gp_FITC(x, xs, y,h,l,u):
     cov_u = Kuu @ np.linalg.inv(Kuu + Kuf @ np.linalg.inv(delta_ff)@ Kfu) @ Kuu
     mu_u = m_u + cov_u @ np.linalg.inv(Kuu) @ Kuf @ np.linalg.inv(delta_ff) @ y
 
-    mu_s = m_s + Ksu @  np.linalg.inv(Kuu) @ mu_u
-    cov_s = Kss - Ksu @ np.linalg.inv(Kuu) @ (Kuu - cov_u) @ np.linalg.inv(Kuu) @ Kus
+    #calculate at current time n
+
+    P_n = np.linalg.inv(Kuu) @ Kun @ np.linalg.inv(delta_nn) @ Knu @ np.linalg.inv(Kuu)
+    cov_u_n = cov_u - (cov_u @ P_n @ cov_u)/(1+np.trace(cov_u @ P_n))
+
+    a = (np.eye(n) - (cov_u_n@ P_n)/(1+np.trace(cov_u@P_n)))@ mu_u
+    mu_u_n = (np.eye(n) - (cov_u_n@ P_n)/(1+np.trace(cov_u@P_n)))@ mu_u + cov_u_n@ np.linalg.inv(Kuu) @ Kun@delta_nn@yn
+
+    mu_s = m_s + Ksu @  np.linalg.inv(Kuu) @ mu_u_n
+    cov_s = Kss - Ksu @ np.linalg.inv(Kuu) @ (Kuu - cov_u_n) @ np.linalg.inv(Kuu) @ Kus
     return mu_s, cov_s
+
+
+
 
 
 
@@ -133,10 +152,15 @@ if __name__ == '__main__':
     [mu,cov] = basic_gp(h,l,mu_0, y, x, x_s)
     [mu_s, cov_s] = offline_sparse_gp_FITC(h,l,mu_0, y, x, x_s,u)
 
-
+    xn = np.array([x[len(x)-1]+0.001])
+    yn = np.array([y[len(y) - 1] + 0.001])
+    [mu_s_on, cov_s_on] = online_sparse_gp_FITC(x, x_s,xn,yn, y,h,l,u)
+    print(len(mu_s_on))
+    print(len(mu_s))
     #Plot
-    plot_gp(y,x,x_s,mu,cov, mu_s, cov_s)
-
+    #plot_gp(y,x,x_s,mu,cov, mu_s, cov_s)
+    plot_gp(y, x, x_s, mu, cov, mu_s_on, cov_s_on)
+    #plot_gp(y,x,x_s,mu,cov, mu, cov)
 
 
 
