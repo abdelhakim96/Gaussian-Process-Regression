@@ -24,11 +24,11 @@ def offline_sparse_gp_FITC(h,l,mu_0, y, x, xs,u):
 
 
 
-    cov_u = Kuu @ np.linalg.inv(Kuu + Kuf @ np.linalg.inv(delta_ff)@ Kfu) @ Kuu
-    mu_u = m_u + cov_u @ np.linalg.inv(Kuu) @ Kuf @ np.linalg.inv(delta_ff) @ y
+    cov_u = Kuu @ np.linalg.inv(Kuu + Kuf @ np.linalg.pinv(delta_ff)@ Kfu) @ Kuu
+    mu_u = m_u + cov_u @ np.linalg.pinv(Kuu) @ Kuf @ np.linalg.pinv(delta_ff) @ y
 
-    mu_s = m_s + Ksu @  np.linalg.inv(Kuu) @ mu_u
-    cov_s = Kss - Ksu @ np.linalg.inv(Kuu) @ (Kuu - cov_u) @ np.linalg.inv(Kuu) @ Kus
+    mu_s = m_s + Ksu @  np.linalg.pinv(Kuu) @ mu_u
+    cov_s = Kss - Ksu @ np.linalg.pinv(Kuu) @ (Kuu - cov_u) @ np.linalg.pinv(Kuu) @ Kus
     return mu_s, cov_s
 
 
@@ -173,20 +173,25 @@ if __name__ == '__main__':
     [l, h] = hyper_param_optimize(x, y)
 
     #Online Data collection and inference
-
+    step_size =  (x[2] - x[1])
+    print(step_size)
     for i in range (sim_time):
-        step_size = 0.4
-        pred_ahead =2
-        x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test + i)
+
+        pred_ahead = 2
+        x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test )
 
         [mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
+        #[mu, cov] = offline_sparse_gp_FITC(h, l, mu_0, y, x, x_s, u)
         #plot_gp(y,x,x_s,mu,cov, mu, cov)
         plot_gp_animation(y, x, x_s, mu, cov, mu, cov)
-        x_end = x[len(x)-1] + 1/10
-        print(x[len(x)-1])
-        print(x_s[len(x_s)-1])
-        print(len(x))
+        #x_end = x[len(x)-1] + step_size
+
         x = np.append(x, x[-1] + step_size)
+        x = x[1:]
+        x_s = x_s[1:]
+        print(len(x))
+        print(len(x_s))
+        u = np.append(u, x[-1] )
         y = generate_sine(period, amplitude, x)
 
 
@@ -200,7 +205,6 @@ if __name__ == '__main__':
     #Plot
     #plot_gp(y,x,x_s,mu,cov, mu_s, cov_s)
     #plot_gp(y,x,x_s,mu,cov, mu, cov)
-
 
 
 
