@@ -1,1 +1,1 @@
-# Gaussian-Process-Regression-Tutorial
+# Gaussian-Process-Regression
