@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from plot_utils import plot_gp
-
+from animate_plot import plot_gp_animation
 
 def offline_sparse_gp_FITC(h,l,mu_0, y, x, xs,u):
     # Create covariance matrices
@@ -107,7 +107,20 @@ def squared_exp_fun(h, l, x1, x2):
 
     return K
 
+def generate_sine(period,amplitude,x):
 
+
+    return amplitude * np.sin(period  * x)
+
+def example_system(x0, n):
+
+    x = np.array(np.zeros(n))
+    x[0] = x0
+    for i  in range(len(x)-1):
+        x[i+1] = x[i]/2 + (25 * x[i] / (1 + (x[i]) ** 2)) * np.cos(x[i]) + np.random.normal(0,1)
+
+
+    return x
 
 
 def basic_gp(h,l,mu_0, y, x, x_s):
@@ -133,33 +146,59 @@ if __name__ == '__main__':
     learning_r = 0.0001 #for gradient descent
     iter = 2000
 
-    # Step 2: Generate data for signal (sine wave)
+    # Step 2: Generate data for signal
+    sim_time =1000
     n_data = 20
     n_ind = 10
     n_test = 100
     period = 1
+    amplitude = 1
     x = np.linspace(0, 2 * np.pi, n_data)
-    y = np.sin(period  * x)
-    x_s = np.linspace(0, 2 * np.pi, n_test )
+    x_s = np.linspace(0, x[len(x)-1], n_test)
     u = np.linspace(0, 2 * np.pi, n_ind)
+    xn = np.array([x[len(x)-1]+0.001])
 
+    #Select signal
 
+    y = generate_sine(period , amplitude,x)  # sine wave
+    yn = np.array([y[len(y) - 1] + 0.001])
+
+   #Other signal from paper
+   # x0=0
+   # len_sig = 30
+   # y = example_system(x0, len_sig)           # sine wave
+   # x = np.linspace(0, len_sig, len_sig)
+   # x_s = np.linspace(0.5, len_sig/2, len_sig/2)
     #Optimize hyperparameters of the GP
     [l, h] = hyper_param_optimize(x, y)
+
+    #Online Data collection and inference
+
+    for i in range (sim_time):
+        step_size = 0.4
+        pred_ahead =2
+        x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test + i)
+
+        [mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
+        #plot_gp(y,x,x_s,mu,cov, mu, cov)
+        plot_gp_animation(y, x, x_s, mu, cov, mu, cov)
+        x_end = x[len(x)-1] + 1/10
+        print(x[len(x)-1])
+        print(x_s[len(x_s)-1])
+        print(len(x))
+        x = np.append(x, x[-1] + step_size)
+        y = generate_sine(period, amplitude, x)
 
 
     #Select GP Type
     [mu,cov] = basic_gp(h,l,mu_0, y, x, x_s)
     [mu_s, cov_s] = offline_sparse_gp_FITC(h,l,mu_0, y, x, x_s,u)
-
-    xn = np.array([x[len(x)-1]+0.001])
-    yn = np.array([y[len(y) - 1] + 0.001])
     [mu_s_on, cov_s_on] = online_sparse_gp_FITC(x, x_s,xn,yn, y,h,l,u)
-    print(len(mu_s_on))
-    print(len(mu_s))
+
+
+
     #Plot
     #plot_gp(y,x,x_s,mu,cov, mu_s, cov_s)
-    plot_gp(y, x, x_s, mu, cov, mu_s_on, cov_s_on)
     #plot_gp(y,x,x_s,mu,cov, mu, cov)
 
 
