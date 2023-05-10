@@ -15,14 +15,10 @@ def offline_sparse_gp_FITC(h,l,mu_0, y, x, xs,u):
     Ksu = squared_exp_fun(h, l, xs, u)
     Kss = squared_exp_fun(h, l, xs, xs)
 
-
-
     Qff = Kfu @ np.linalg.inv(Kuu) @ Kuf
     delta_ff = np.diag((Kff - Qff)[0])
     m_u = 0
     m_s = 0
-
-
 
     cov_u = Kuu @ np.linalg.inv(Kuu + Kuf @ np.linalg.pinv(delta_ff)@ Kfu) @ Kuu
     mu_u = m_u + cov_u @ np.linalg.pinv(Kuu) @ Kuf @ np.linalg.pinv(delta_ff) @ y
@@ -49,17 +45,14 @@ def online_sparse_gp_FITC(x, xs,xn,yn, y,h,l,u):
 
     n= len(Kuu)
 
-
     Qff = Kfu @ np.linalg.inv(Kuu) @ Kuf
     Qnn = Knu @ np.linalg.inv(Kuu) @ Kun
 
     delta_ff = np.diag((Kff - Qff)[0])
-
     delta_nn = np.diag((Knn - Qnn)[0])
+
     m_u = 0
     m_s = 0
-
-
 
     cov_u = Kuu @ np.linalg.inv(Kuu + Kuf @ np.linalg.inv(delta_ff)@ Kfu) @ Kuu
     mu_u = m_u + cov_u @ np.linalg.inv(Kuu) @ Kuf @ np.linalg.inv(delta_ff) @ y
@@ -75,12 +68,6 @@ def online_sparse_gp_FITC(x, xs,xn,yn, y,h,l,u):
     mu_s = m_s + Ksu @  np.linalg.inv(Kuu) @ mu_u_n
     cov_s = Kss - Ksu @ np.linalg.inv(Kuu) @ (Kuu - cov_u_n) @ np.linalg.inv(Kuu) @ Kus
     return mu_s, cov_s
-
-
-
-
-
-
 
 def log_max_likelyhood(x, y, noise):
     def step(theta):
@@ -108,9 +95,16 @@ def squared_exp_fun(h, l, x1, x2):
     return K
 
 def generate_sine(period,amplitude,x):
+    if x == []:
+        x = np.linspace(0, 2 * np.pi, n_data)
 
+    x_s = np.linspace(0, x[len(x)-1], n_test)
+    u = np.linspace(0, 2 * np.pi, n_ind)
+    xn = np.array([x[len(x)-1]+0.001])
+    y = amplitude * np.sin(period  * x)
+    yn = np.array([y[len(y) - 1] + 0.001])
 
-    return amplitude * np.sin(period  * x)
+    return [y,x, x_s,u,xn,yn]
 
 def example_system(x0, n):
 
@@ -142,42 +136,33 @@ if __name__ == '__main__':
     h = 1 #amplitude coff
     l = 1 #timescale
 
+    #simulation params
+    animate = 1 #Flag to determine if you want to animate TRUE: will create animation, FALSE: will just plot
+    pred_ahead = 2
+    sim_time = 1000
+
     #optimization params
     learning_r = 0.0001 #for gradient descent
     iter = 2000
 
-    # Step 2: Generate data for signal
-    sim_time =1000
+    # Input Signal params
     n_data = 20
     n_ind = 10
     n_test = 100
     period = 1
     amplitude = 1
-    x = np.linspace(0, 2 * np.pi, n_data)
-    x_s = np.linspace(0, x[len(x)-1], n_test)
-    u = np.linspace(0, 2 * np.pi, n_ind)
-    xn = np.array([x[len(x)-1]+0.001])
 
-    #Select signal
+    #Generate Signal
 
-    y = generate_sine(period , amplitude,x)  # sine wave
-    yn = np.array([y[len(y) - 1] + 0.001])
+    [y,x, x_s,u,xn,yn]= generate_sine(period, amplitude,[])
+    step_size =  (x[2] - x[1])
 
-   #Other signal from paper
-   # x0=0
-   # len_sig = 30
-   # y = example_system(x0, len_sig)           # sine wave
-   # x = np.linspace(0, len_sig, len_sig)
-   # x_s = np.linspace(0.5, len_sig/2, len_sig/2)
     #Optimize hyperparameters of the GP
     [l, h] = hyper_param_optimize(x, y)
 
-    #Online Data collection and inference
-    step_size =  (x[2] - x[1])
-    print(step_size)
+    #Compute and Vizualize
     for i in range (sim_time):
 
-        pred_ahead = 2
         x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test )
 
         [mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
@@ -187,24 +172,16 @@ if __name__ == '__main__':
         #x_end = x[len(x)-1] + step_size
 
         x = np.append(x, x[-1] + step_size)
+        off_u = 0.01 #offset to prevent x=u
+        u = np.append(u, u[-1] + step_size - off_u )
+
+        u = u[1:]
         x = x[1:]
         x_s = x_s[1:]
-        print(len(x))
-        print(len(x_s))
-        u = np.append(u, x[-1] )
-        y = generate_sine(period, amplitude, x)
+        y = generate_sine(period, amplitude,x)[0]
 
-
-    #Select GP Type
-    [mu,cov] = basic_gp(h,l,mu_0, y, x, x_s)
-    [mu_s, cov_s] = offline_sparse_gp_FITC(h,l,mu_0, y, x, x_s,u)
-    [mu_s_on, cov_s_on] = online_sparse_gp_FITC(x, x_s,xn,yn, y,h,l,u)
-
-
-
-    #Plot
+    #Plotting
     #plot_gp(y,x,x_s,mu,cov, mu_s, cov_s)
-    #plot_gp(y,x,x_s,mu,cov, mu, cov)
 
 
 
