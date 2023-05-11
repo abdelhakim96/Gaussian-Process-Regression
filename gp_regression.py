@@ -139,7 +139,7 @@ if __name__ == '__main__':
     #simulation params
     animate = 1 #Flag to determine if you want to animate TRUE: will create animation, FALSE: will just plot
     pred_ahead = 2
-    sim_time = 1000
+    sim_time = 10
 
     #optimization params
     learning_r = 0.0001 #for gradient descent
@@ -161,6 +161,8 @@ if __name__ == '__main__':
     [l, h] = hyper_param_optimize(x, y)
 
     #Compute and Vizualize
+    sim_time =20
+    frames = []
     for i in range (sim_time):
 
         x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test )
@@ -168,7 +170,9 @@ if __name__ == '__main__':
         [mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
         #[mu, cov] = offline_sparse_gp_FITC(h, l, mu_0, y, x, x_s, u)
         #plot_gp(y,x,x_s,mu,cov, mu, cov)
-        plot_gp_animation(y, x, x_s, mu, cov, mu, cov)
+
+        it=i
+        plot_gp_animation(y, x, x_s, mu, cov, mu, cov, 'animation.gif', sim_time,it,frames)
         #x_end = x[len(x)-1] + step_size
 
         x = np.append(x, x[-1] + step_size)
