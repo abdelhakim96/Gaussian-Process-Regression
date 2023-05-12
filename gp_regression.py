@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from plot_utils import plot_gp
 from animate_plot import plot_gp_animation
-
+from get_drone_data import calculate_force_estimates_and_obtain_data
 def offline_sparse_gp_FITC(h,l,mu_0, y, x, xs,u):
     # Create covariance matrices
 
@@ -90,7 +90,19 @@ def hyper_param_optimize(x, y):
 
 
 def squared_exp_fun(h, l, x1, x2):
-    K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
+    #K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
+    if (x1.ndim > 1) or (x2.ndim > 1):
+        K = (h ** 2) * np.exp((-(x2[0, :] - np.tile(x1[0, :], (x2.shape[1], 1)).T) ** 2) / (2 * l ** 2))
+    else:
+        K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
+        print(x1.ndim )
+
+    return K
+
+def multi_input_squared_exp_fun(h, delta, x1, x2):
+    #K = (h ** 2)  * np.exp((-0.5 *  (x1 - x2).T @ delta @ (x1 - x2) ))
+    squared_dist = np.sum((x1.T[:, None] - x2) ** 2, axis=-1)
+    K = (h ** 2) * np.exp(-squared_dist / (2 * l ** 2))
 
     return K
 
@@ -117,14 +129,31 @@ def example_system(x0, n):
     return x
 
 
+def basic_gp_2(h,l,mu_0, y, x, x_s):
+
+
+
+    K_xx = multi_input_squared_exp_fun(h, l, x, x)
+    K_x_x = multi_input_squared_exp_fun(h, l, x_s, x)
+    K_xx_ = multi_input_squared_exp_fun(h, l, x, x_s)
+    K_x_x_ = multi_input_squared_exp_fun(h, l, x_s, x_s)
+
+    K_inv = np.linalg.inv(K_xx)
+    mu = mu_0 + K_x_x @ K_inv @ y
+    cov = K_x_x_ - K_x_x @ K_inv @ K_xx_
+
+
+    return mu, cov
 def basic_gp(h,l,mu_0, y, x, x_s):
     K_xx = squared_exp_fun(h, l, x, x)
     K_x_x = squared_exp_fun(h, l, x_s, x)
     K_xx_ = squared_exp_fun(h, l, x, x_s)
     K_x_x_ = squared_exp_fun(h, l, x_s, x_s)
 
-    K_inv = np.linalg.inv(K_xx)
-    mu = mu_0 + K_x_x @ K_inv @ y
+
+
+    K_inv = np.linalg.pinv(K_xx)
+    mu = K_x_x @ K_inv @ y
     cov = K_x_x_ - K_x_x @ K_inv @ K_xx_
 
 
@@ -158,34 +187,80 @@ if __name__ == '__main__':
     step_size =  (x[2] - x[1])
 
     #Optimize hyperparameters of the GP
-    [l, h] = hyper_param_optimize(x, y)
+    #[l, h] = hyper_param_optimize(x, y)
 
     #Compute and Vizualize
     sim_time =20
+    run_anim=0
     frames = []
-    for i in range (sim_time):
+    if run_anim ==1:
+        for i in range (sim_time):
 
-        x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test )
+            x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test )
 
-        [mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
-        #[mu, cov] = offline_sparse_gp_FITC(h, l, mu_0, y, x, x_s, u)
-        #plot_gp(y,x,x_s,mu,cov, mu, cov)
+            #[mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
+            [mu, cov] = offline_sparse_gp_FITC(h, l, mu_0, y, x, x_s, u)
+            #plot_gp(y,x,x_s,mu,cov, mu, cov)
 
-        it=i
-        plot_gp_animation(y, x, x_s, mu, cov, mu, cov, 'animation.gif', sim_time,it,frames)
-        #x_end = x[len(x)-1] + step_size
+            it=i
+            plot_gp_animation(y, x, x_s, mu, cov, mu, cov, 'animation.gif', sim_time,it,frames)
+            #x_end = x[len(x)-1] + step_size
 
-        x = np.append(x, x[-1] + step_size)
-        off_u = 0.01 #offset to prevent x=u
-        u = np.append(u, u[-1] + step_size - off_u )
+            x = np.append(x, x[-1] + step_size)
+            off_u = 0.01 #offset to prevent x=u
+            u = np.append(u, u[-1] + step_size - off_u )
 
-        u = u[1:]
-        x = x[1:]
-        x_s = x_s[1:]
-        y = generate_sine(period, amplitude,x)[0]
+            u = u[1:]
+            x = x[1:]
+            x_s = x_s[1:]
+            y = generate_sine(period, amplitude,x)[0]
+
 
     #Plotting
-    #plot_gp(y,x,x_s,mu,cov, mu_s, cov_s)
+    h = 1
+    #l = np.diag([1,1])
+
+
+
+
+
+
+
+
+
+# drone data
+
+
+
+[gt_x,gt_y,gp_pr_x,gp_pr_y,pos_x,vel_x] = calculate_force_estimates_and_obtain_data()
+
+
+#x = np.array([pos_x[1:200], vel_x[1:200]])
+t= np.linspace(0, 500, 500)
+x1 = np.linspace(0, 500, 500)
+x2 = pos_x[0::4]
+x2 = np.array(x2[1:501])
+x3 = gt_x[0::4]
+x3 = np.array(x3[1:501])
+
+x= np.array([x1,x2,x3])
+
+
+xs1 = np.linspace(x1[0], x1[len(x1)-1]+1, len(x1)*2)
+xs2 = np.linspace(x2[0], x1[len(x2)-1]+1, len(x2)*2)
+xs3 = np.linspace(x3[0], x1[len(x3)-1]+1, len(x2)*2)
+
+x_s =np.array([xs1,xs2])
+
+
+y= gt_x[2::4]
+y = y[1:501]
+
+[mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
+plot_gp(y, t, x_s[0, :], mu, cov, mu, cov)
+#plot_gp(y, t, x_s[0, :], 0, 0, 0, 0)
+
+#plot_gp(y, x, x_s, mu, cov, mu, cov)
 
 
 

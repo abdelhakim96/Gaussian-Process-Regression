@@ -23,8 +23,8 @@ def plot_gp_animation(y, x, x_s, mu, cov, mu_s, cov_s, filename, duration,iter,f
     plt.plot(last_100_x_s, last_100_mu_s, color='blue', label='Predicted Mean')
     plt.fill_between(
         last_100_x_s,
-        last_100_mu - np.sqrt(np.diag(last_100_cov)),
-        last_100_mu + np.sqrt(np.diag(last_100_cov)),
+        last_100_mu - np.sqrt(np.maximum(np.diag(last_100_cov), 0)),
+        last_100_mu + np.sqrt(np.maximum(np.diag(last_100_cov), 0)),
         color='gray',
         alpha=0.4,
         label='Uncertainty'
