@@ -20,6 +20,7 @@ def plot_gp(y,x,x_s,mu,cov, mu_s, cov_s):
     # Plotting the first figure with data, mean, and uncertainty
     plt.figure(figsize=(10, 6))
     plt.scatter(x, y, color='red', label='Data')
+    plt.scatter(x[len(x)-1]+1, mu, color='blue', label='predicted')
 
     #plt.plot(x_s, mu, color='blue', label='Predicted Mean')
     plt.plot(x_s, mu_s, color='blue', label='Predicted Mean')
