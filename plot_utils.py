@@ -1,6 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
+import os
 
+"""
+Python script for visualisation of GPR
+
+Author: Hakim Amer
+Date: May 15, 2023
+"""
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+figs_dir = os.path.join(script_dir, 'figs')
+root_dir = os.path.dirname(figs_dir)
 
 def plot_samples(mu,cov,num_samples,x_s):
     # Draw samples from the Gaussian Process
@@ -45,3 +57,95 @@ def plot_gp(y,x,x_s,mu,cov, mu_s, cov_s):
 
     # Display both figures
     plt.show()
+
+
+def plot_gp_dynamic(y_all,y, t_all,t,t_mu, x_s, mu, cov, mu_s, cov_s,i):
+    # Select the last 100 elements
+
+
+
+    plt.rcParams["figure.figsize"] = (18, 6)
+
+    # Clear the current figure
+
+    plt.clf()
+    # Plotting the figure with data, mean, and uncertainty
+
+    plt.scatter(t_all, y_all , color='red', label='Past Data',marker='o')
+    plt.scatter(t, y , color='green', label='Regression Data', marker='x')
+
+
+    plt.plot(t_mu, mu , color='blue', label='prediction')
+
+
+
+    plt.xlabel('x')
+    plt.ylabel('y')
+
+    # Set the legend outside the plot
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+    # Update the x-axis limits to slide the view range
+    # Set the desired step size for sliding the x-axis range
+    step_size = 0.1
+
+
+    # Set the x-axis limits
+    plt.xlim(t_all[0]+i +300 , t_all[len(t_all)-1] + 1)
+
+    # Update the plot
+    plt.pause(0.0001)  # Pause to allow the plot to update
+
+
+def plot_gp_animation(y, x, x_s, mu, cov, mu_s, cov_s, filename, duration,iter,frames):
+    # Select the last 100 elements
+    last_100_mu = mu[-100:]
+    last_100_cov = cov[-100:]
+    last_100_mu_s = mu_s[-100:]
+    last_100_x_s = x_s[-100:]
+    last_100_cov_s = cov_s[-100:]
+
+    # Select the last 10 elements
+    last_100_y = y
+    last_100_x = x
+
+    # Clear the current figure
+    plt.clf()
+
+    # Plotting the figure with data, mean, and uncertainty
+    plt.scatter(last_100_x, last_100_y, color='red', label='Data')
+    plt.plot(last_100_x_s, last_100_mu_s, color='blue', label='Predicted Mean')
+    plt.fill_between(
+        last_100_x_s,
+        last_100_mu - np.sqrt(np.diag(last_100_cov)),
+        last_100_mu + np.sqrt(np.diag(last_100_cov)),
+        color='gray',
+        alpha=0.4,
+        label='Uncertainty'
+    )
+    plt.xlabel('x')
+    plt.ylabel('y')
+
+    # Set the legend outside the plot
+    plt.legend(loc='upper left')
+
+    # Update the x-axis limits to slide the view range
+    # Set the desired step size for sliding the x-axis range
+    step_size = 0.1
+
+    last_100_x_s = last_100_x_s[-100:]  # Limit x_s to the last 100 points
+    x_min = max(last_100_x_s[-1] - 2 * np.pi, -2 * np.pi)  # Set the minimum x-axis limit
+    x_max = last_100_x_s[-1]  # Set the maximum x-axis limit
+
+    # Set the x-axis limits
+    plt.xlim(x_min, x_max + 0.02)
+    plt.ylim(-1.1, 1.5)
+
+    # Save the plot as an image
+    plt.savefig(os.path.join(figs_dir, 'animation_frame.png'))
+    # Open the saved image
+    image_path = os.path.join(figs_dir, 'animation_frame.png')
+    image = Image.open(image_path)
+    #image.show()
+    frames.append(image)
+    frames[0].save(filename, save_all=True, append_images=frames[1:], duration=duration*10, loop=0)

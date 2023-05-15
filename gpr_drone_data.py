@@ -1,11 +1,28 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-from plot_utils import plot_gp
-from plot_utils_dynamic import plot_gp_dynamic
-
-from animate_plot import plot_gp_animation
+from plot_utils import plot_gp, plot_gp_dynamic,plot_gp_animation
 from get_drone_data import calculate_force_estimates_and_obtain_data
+
+import os
+
+"""
+This is a Python script that demonstrates Gaussian Process Regression for data generated from drone simulation
+
+The script performs various steps, including data preprocessing, model training,
+and visualization of the regression results.
+
+Author: Hakim Amer
+Date: May 15, 2023
+"""
+
+
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+figs_dir = os.path.join(script_dir, 'figs')
+root_dir = os.path.dirname(figs_dir)
+
+
 def offline_sparse_gp_FITC(h,l,mu_0, y, x, xs,u):
     # Create covariance matrices
 
@@ -168,123 +185,54 @@ def basic_gp(h,l,mu_0, y, x, x_s):
     return mu, cov
 
 if __name__ == '__main__':
-    # Step 1: Define GP parameters
-    mu_0 = 0.0 #prior mean
-    h = 1 #amplitude coff
-    l = 1 #timescale
 
-    #simulation params
-    animate = 1 #Flag to determine if you want to animate TRUE: will create animation, FALSE: will just plot
-    pred_ahead = 2
-    sim_time = 10
-
-    #optimization params
-    learning_r = 0.0001 #for gradient descent
-    iter = 2000
-
-    # Input Signal params
-    n_data = 20
-    n_ind = 10
-    n_test = 100
-    period = 1
-    amplitude = 1
-
-    #Generate Signal
-
-    [y,x, x_s,u,xn,yn]= generate_sine(period, amplitude,[])
-    step_size =  (x[2] - x[1])
-
-    #Optimize hyperparameters of the GP
-    #[l, h] = hyper_param_optimize(x, y)
-
-    #Compute and Vizualize
-    sim_time =300
-    run_anim= 0
-    frames = []
-    if run_anim ==1:
-        for i in range (sim_time):
-
-            x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test )
-
-            #[mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
-            [mu, cov] = offline_sparse_gp_FITC(h, l, mu_0, y, x, x_s, u)
-            #plot_gp(y,x,x_s,mu,cov, mu, cov)
-
-            it=i
-            plot_gp_animation(y, x, x_s, mu, cov, mu, cov, 'animation.gif', sim_time,it,frames)
-            #x_end = x[len(x)-1] + step_size
-
-            x = np.append(x, x[-1] + step_size)
-            off_u = 0.01 #offset to prevent x=u
-            u = np.append(u, u[-1] + step_size - off_u )
-
-            u = u[1:]
-            x = x[1:]
-            x_s = x_s[1:]
-            y = generate_sine(period, amplitude,x)[0]
-
-
-    #Plotting
-    h = 1
-    #l = np.diag([1,1])
+    [gt_x, gt_y, gp_pr_x, gp_pr_y, pos_x, vel_x] = calculate_force_estimates_and_obtain_data()
+    sim_time = 300
+    n_i = 200
+    n = 200
+    mu_0 = 0
+    skip = 10
+    dist_a = gt_x[n_i::skip]
+    x2 = [0]
+    x2 = np.append(x2, np.array(np.diff(gt_x[n_i::skip])))
 
 
 
+    x1_i = gt_x[1::skip]
+    x1_i = np.array(dist_a[(1):(n_i)])
+
+    x2_i = [0]
+    x2_i = np.append(x2, np.array(np.diff(gt_x[1::skip])))
+    x2_i = x2_i[0:(len(x1_i))]
+    x_i = np.array([x1_i,x2_i])
+    x_i = x2_i
+
+    y_i = dist_a[(2):(n_i+1)]
+    #x_i = np.linspace(0, len(y_i), len(y_i))
+    h=10
+
+    #l =np.array([1,1])
+    l=[1, 1]
+    mu_all =[]
+    #[l, h] = hyper_param_optimize(x_i, y_i)
+    t_mu = []
+
+    for i in range (sim_time):
+        x1 = np.array(dist_a[(n_i+1+i):(n_i+n+i)])
+        x2 = x2[0:(len(x1))]
+        x = np.array([x1,x2])
 
 
-
-
-
-
-# drone data
-
-[gt_x, gt_y, gp_pr_x, gp_pr_y, pos_x, vel_x] = calculate_force_estimates_and_obtain_data()
-sim_time = 300
-n_i = 200
-n = 100
-
-skip = 5
-dist_a = gt_x[n_i::skip]
-x2 = [0]
-x2 = np.append(x2, np.array(np.diff(gt_x[n_i::skip])))
-
-
-
-x1_i = gt_x[1::skip]
-x1_i = np.array(dist_a[(1):(n_i)])
-
-x2_i = [0]
-x2_i = np.append(x2, np.array(np.diff(gt_x[1::skip])))
-x2_i = x2_i[0:(len(x1_i))]
-x_i = np.array([x1_i,x2_i])
-x_i = x2_i
-
-y_i = dist_a[(2):(n_i+1)]
-#x_i = np.linspace(0, len(y_i), len(y_i))
-h=10
-
-#l =np.array([1,1])
-l=[1, 1]
-
-#[l, h] = hyper_param_optimize(x_i, y_i)
-
-for i in range (sim_time):
-    x1 = np.array(dist_a[(n_i+1+i):(n_i+n+i)])
-    x2 = x2[0:(len(x1))]
-    x = np.array([x1,x2])
-
-
-    y = dist_a[n_i+(2+i):(n_i+n+1+i)]
-    x_s1= np.array([y[len(y)-1]])
-    x_s2 = np.array([y[len(y) - 1]- y[len(y) - 2]])
-    x_s = np.array([x_s1,x_s2])
-    [mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
-    y_all = dist_a[(3):(n+n_i+1+i)]
-
-    #t = np.linspace(i + n_i, len(y) + n_i + i, len(y))
-    t = np.linspace(i+n_i, len(y)+n_i+i, len(y))
-    t_all = np.linspace( 0, len(y_all)+1 , len(y_all))
-
-    t_s = np.linspace(i, len(mu)+i, len(mu)+i)
-
-    plot_gp_dynamic(y_all,y, t_all,t,  t, mu, cov, mu, cov,i)
+        y = dist_a[n_i+(2+i):(n_i+n+1+i)]
+        x_s1= np.array([y[len(y)-1]])
+        x_s2 = np.array([y[len(y) - 1]- y[len(y) - 2]])
+        x_s = np.array([x_s1,x_s2])
+        [mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
+        y_all = dist_a[(3):(n+n_i+1+i)]
+        mu_all = np.append(mu_all, mu)
+        #t = np.linspace(i + n_i, len(y) + n_i + i, len(y))
+        t = np.linspace(i+n_i, len(y)+n_i+i, len(y))
+        t_all = np.linspace( 0, len(y_all)+1 , len(y_all))
+        t_mu = np.append(t_mu, t_all[len(t_all) - 1] + 1)
+        t_s = np.linspace(i, len(mu)+i, len(mu)+i)
+        plot_gp_dynamic(y_all,y, t_all,t, t_mu,x_s, mu_all, cov,mu_all, cov,i)
