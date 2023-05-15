@@ -1,8 +1,27 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-from plot_utils import plot_gp
-from animate_plot import plot_gp_animation
+from plot_utils import plot_gp, plot_gp_dynamic,plot_gp_animation
+from get_drone_data import calculate_force_estimates_and_obtain_data
+
+import os
+
+"""
+This is a Python script that demonstrates Gaussian Process Regression for data generated from drone simulation
+
+The script performs various steps, including data preprocessing, model training,
+and visualization of the regression results.
+
+Author: Hakim Amer
+Date: May 15, 2023
+"""
+
+
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+figs_dir = os.path.join(script_dir, 'figs')
+root_dir = os.path.dirname(figs_dir)
+
 
 def offline_sparse_gp_FITC(h,l,mu_0, y, x, xs,u):
     # Create covariance matrices
@@ -72,9 +91,11 @@ def online_sparse_gp_FITC(x, xs,xn,yn, y,h,l,u):
 def log_max_likelyhood(x, y, noise):
     def step(theta):
         K = squared_exp_fun(theta[1], theta[0], x, x)
-        return np.sum(np.log(np.diagonal(np.linalg.cholesky(K)))) + \
-               0.5 * y.T @ np.linalg.pinv(K) @ y + \
-               0.5 * len(x) * np.log(2*np.pi)
+
+        #return np.sum(np.log(np.diagonal(np.linalg.cholesky(K)))) + \
+        #       0.5 * y.T @ np.linalg.pinv(K) @ y + \
+        #       0.5 * len(x) * np.log(2*np.pi)
+        return -0.5 * y.T @K @y - 0.5 * np.log(np.linalg.det(K)) - n/2 * np.log (2* np.pi)
     return step
 
 # minimize -log liklihood
@@ -90,7 +111,23 @@ def hyper_param_optimize(x, y):
 
 
 def squared_exp_fun(h, l, x1, x2):
-    K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
+    #K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
+    K = np.zeros([np.shape(x1)[1],np.shape(x1)[1]])
+    if (x1.ndim > 1) or (x2.ndim > 1):
+        for i in range(np.shape(x1)[0]):
+            K = K + (h ** 2) * (np.exp((-(x2[i, :] - np.tile(x1[i, :], (x2.shape[1], 1)).T) ** 2) / (2 * l[i] ** 2)))
+
+        #K = np.sum((h ** 2) * np.exp((-(x2[:, :] - np.tile(x1[:, :], (x2.shape[1], 1)).T) ** 2) / (2 * l ** 2)), axis=1)
+    else:
+        K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
+
+
+    return K
+
+def multi_input_squared_exp_fun(h, delta, x1, x2):
+    #K = (h ** 2)  * np.exp((-0.5 *  (x1 - x2).T @ delta @ (x1 - x2) ))
+    squared_dist = np.sum((x1.T[:, None] - x2) ** 2, axis=-1)
+    K = (h ** 2) * np.exp(-squared_dist / (2 * delta ** 2))
 
     return K
 
@@ -117,11 +154,14 @@ def example_system(x0, n):
     return x
 
 
-def basic_gp(h,l,mu_0, y, x, x_s):
-    K_xx = squared_exp_fun(h, l, x, x)
-    K_x_x = squared_exp_fun(h, l, x_s, x)
-    K_xx_ = squared_exp_fun(h, l, x, x_s)
-    K_x_x_ = squared_exp_fun(h, l, x_s, x_s)
+def basic_gp_2(h,l,mu_0, y, x, x_s):
+
+
+
+    K_xx = multi_input_squared_exp_fun(h, l, x, x)
+    K_x_x = multi_input_squared_exp_fun(h, l, x_s, x)
+    K_xx_ = multi_input_squared_exp_fun(h, l, x, x_s)
+    K_x_x_ = multi_input_squared_exp_fun(h, l, x_s, x_s)
 
     K_inv = np.linalg.inv(K_xx)
     mu = mu_0 + K_x_x @ K_inv @ y
@@ -129,64 +169,70 @@ def basic_gp(h,l,mu_0, y, x, x_s):
 
 
     return mu, cov
+def basic_gp(h,l,mu_0, y, x, x_s):
+    K_xx = squared_exp_fun(h, l, x, x)
+    K_x_x = squared_exp_fun(h, l, x_s, x)
+    K_xx_ = squared_exp_fun(h, l, x, x_s)
+    K_x_x_ = squared_exp_fun(h, l, x_s, x_s)
+
+
+
+    K_inv = np.linalg.pinv(K_xx)
+    mu = K_x_x @ K_inv @ y
+    cov = K_x_x_ - K_x_x @ K_inv @ K_xx_
+
+
+    return mu, cov
 
 if __name__ == '__main__':
-    # Step 1: Define GP parameters
-    mu_0 = 0.0 #prior mean
-    h = 1 #amplitude coff
-    l = 1 #timescale
 
-    #simulation params
-    animate = 1 #Flag to determine if you want to animate TRUE: will create animation, FALSE: will just plot
-    pred_ahead = 2
-    sim_time = 10
+    [gt_x, gt_y, gp_pr_x, gp_pr_y, pos_x, vel_x] = calculate_force_estimates_and_obtain_data()
+    sim_time = 300
+    n_i = 200
+    n = 200
+    mu_0 = 0
+    skip = 10
+    dist_a = gt_x[n_i::skip]
+    x2 = [0]
+    x2 = np.append(x2, np.array(np.diff(gt_x[n_i::skip])))
 
-    #optimization params
-    learning_r = 0.0001 #for gradient descent
-    iter = 2000
 
-    # Input Signal params
-    n_data = 20
-    n_ind = 10
-    n_test = 100
-    period = 1
-    amplitude = 1
 
-    #Generate Signal
+    x1_i = gt_x[1::skip]
+    x1_i = np.array(dist_a[(1):(n_i)])
 
-    [y,x, x_s,u,xn,yn]= generate_sine(period, amplitude,[])
-    step_size =  (x[2] - x[1])
+    x2_i = [0]
+    x2_i = np.append(x2, np.array(np.diff(gt_x[1::skip])))
+    x2_i = x2_i[0:(len(x1_i))]
+    x_i = np.array([x1_i,x2_i])
+    x_i = x2_i
 
-    #Optimize hyperparameters of the GP
-    [l, h] = hyper_param_optimize(x, y)
+    y_i = dist_a[(2):(n_i+1)]
+    #x_i = np.linspace(0, len(y_i), len(y_i))
+    h=10
 
-    #Compute and Vizualize
-    sim_time =20
-    frames = []
+    #l =np.array([1,1])
+    l=[1, 1]
+    mu_all =[]
+    #[l, h] = hyper_param_optimize(x_i, y_i)
+    t_mu = []
+
     for i in range (sim_time):
+        x1 = np.array(dist_a[(n_i+1+i):(n_i+n+i)])
+        x2 = x2[0:(len(x1))]
+        x = np.array([x1,x2])
 
-        x_s = np.linspace(0, x[len(x)-1]+pred_ahead, n_test )
 
+        y = dist_a[n_i+(2+i):(n_i+n+1+i)]
+        x_s1= np.array([y[len(y)-1]])
+        x_s2 = np.array([y[len(y) - 1]- y[len(y) - 2]])
+        x_s = np.array([x_s1,x_s2])
         [mu, cov] = basic_gp(h, l, mu_0, y, x, x_s)
-        #[mu, cov] = offline_sparse_gp_FITC(h, l, mu_0, y, x, x_s, u)
-        #plot_gp(y,x,x_s,mu,cov, mu, cov)
-
-        it=i
-        plot_gp_animation(y, x, x_s, mu, cov, mu, cov, 'animation.gif', sim_time,it,frames)
-        #x_end = x[len(x)-1] + step_size
-
-        x = np.append(x, x[-1] + step_size)
-        off_u = 0.01 #offset to prevent x=u
-        u = np.append(u, u[-1] + step_size - off_u )
-
-        u = u[1:]
-        x = x[1:]
-        x_s = x_s[1:]
-        y = generate_sine(period, amplitude,x)[0]
-
-    #Plotting
-    #plot_gp(y,x,x_s,mu,cov, mu_s, cov_s)
-
-
-
-
+        y_all = dist_a[(3):(n+n_i+1+i)]
+        mu_all = np.append(mu_all, mu)
+        #t = np.linspace(i + n_i, len(y) + n_i + i, len(y))
+        t = np.linspace(i+n_i, len(y)+n_i+i, len(y))
+        t_all = np.linspace( 0, len(y_all)+1 , len(y_all))
+        t_mu = np.append(t_mu, t_all[len(t_all) - 1] + 1)
+        t_s = np.linspace(i, len(mu)+i, len(mu)+i)
+        plot_gp_dynamic(y_all,y, t_all,t, t_mu,x_s, mu_all, cov,mu_all, cov,i)
