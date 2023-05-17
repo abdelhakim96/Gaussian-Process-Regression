@@ -59,7 +59,7 @@ def plot_gp(y,x,x_s,mu,cov, mu_s, cov_s):
     plt.show()
 
 
-def plot_gp_dynamic(y_all,y, t_all,t,t_mu, x_s, mu, cov, mu_s, cov_s,i):
+def plot_gp_dynamic(y_train, x_train, x_test, t_train,t_test, mu, cov, pred_ahead):
     # Select the last 100 elements
 
 
@@ -71,12 +71,19 @@ def plot_gp_dynamic(y_all,y, t_all,t,t_mu, x_s, mu, cov, mu_s, cov_s,i):
     plt.clf()
     # Plotting the figure with data, mean, and uncertainty
 
-    plt.scatter(t_all, y_all , color='red', label='Past Data',marker='o')
-    plt.scatter(t, y , color='green', label='Regression Data', marker='x')
+    plt.scatter(t_train, y_train , color='red', label='Past Data',marker='o')
+
+    plt.plot(t_test, mu , color='blue', label='prediction')
 
 
-    plt.plot(t_mu, mu , color='blue', label='prediction')
-
+    plt.fill_between(
+        t_test,
+        mu - np.sqrt(np.diag(cov)),
+        mu + np.sqrt(np.diag(cov)),
+        color='gray',
+        alpha=0.4,
+        label='Uncertainty'
+    )
 
 
     plt.xlabel('x')
@@ -91,11 +98,11 @@ def plot_gp_dynamic(y_all,y, t_all,t,t_mu, x_s, mu, cov, mu_s, cov_s,i):
 
 
     # Set the x-axis limits
-    plt.xlim(t_all[0]+i +300 , t_all[len(t_all)-1] + 1)
+    plt.xlim(t_train[0], t_train[len(t_train)-1] + pred_ahead)
 
     # Update the plot
-    plt.pause(0.0001)  # Pause to allow the plot to update
-
+    #plt.pause(1)  # Pause to allow the plot to update
+    plt.show()
 
 def plot_gp_animation(y, x, x_s, mu, cov, mu_s, cov_s, filename, duration,iter,frames):
     # Select the last 100 elements
@@ -115,6 +122,7 @@ def plot_gp_animation(y, x, x_s, mu, cov, mu_s, cov_s, filename, duration,iter,f
     # Plotting the figure with data, mean, and uncertainty
     plt.scatter(last_100_x, last_100_y, color='red', label='Data')
     plt.plot(last_100_x_s, last_100_mu_s, color='blue', label='Predicted Mean')
+
     plt.fill_between(
         last_100_x_s,
         last_100_mu - np.sqrt(np.diag(last_100_cov)),

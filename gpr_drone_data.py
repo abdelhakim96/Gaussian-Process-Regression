@@ -20,6 +20,7 @@ Date: May 15, 2023
 
 if __name__ == '__main__':
     # find root directory
+    gp_regression = Gaussian_Process_Regression()  # create instance of object gp_regression
     script_dir = os.path.dirname(os.path.abspath(__file__))
     figs_dir = os.path.join(script_dir, 'figs')
     root_dir = os.path.dirname(figs_dir)
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     n_i = 200    # number of data points for initial GP
     n = 200     # number of data points for online GP
     mu_0 = 0   # prior mean
-    skip = 2   # data points to skip
+    skip = 5  # data points to skip
     dist_a = gt_x[n_i::skip]   # get the disturbance in x
     x2 = [0]                   # get the disturbance difference in x
     x2 = np.append(x2, np.array(np.diff(gt_x[n_i::skip])))
@@ -49,17 +50,21 @@ if __name__ == '__main__':
 
     y_i = dist_a[(2):(n_i+1)]
     # initial value of hyperparams
-    h=10
-    l=[1, 1]
+    h0=1
+    l0=[1, 1]
+    l0= 1
     mu_all =[]
     # optimize hyper parameters of initial GP
-    #[l, h] = hyper_param_optimize(x_i, y_i)
+    h = h0
+    l = [l0, l0]
+    #[l0, h0] = gp_regression.hyper_param_optimize(x_i, y_i,l0,h0)
+
     t_mu = []
 
 
    # run simulation
     for i in range (sim_time):
-        gp_regression = Gaussian_Process_Regression() #create instance of object gp_regression
+
         x1 = np.array(dist_a[(n_i+1+i):(n_i+n+i)])
         x2 = x2[0:(len(x1))]
         x = np.array([x1,x2])
