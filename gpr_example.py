@@ -64,15 +64,15 @@ if __name__ == '__main__':
     x_s = np.c_[x1_s, x2_s]
 
     x_s = x1_s.reshape(-1,1)
-    x_s = x1_s
+    #x_s = x1_s
     x2 = np.diff(y1)/np.diff(x1)
     x2 = np.insert(x2, 0, 0)
     x = np.c_[x1, x2]
     x=x1
-   # x = x1.reshape(-1,1)
+    x = x1.reshape(-1,1)
     y = np.c_[y1, y1]
     y=y1
-    #y = y1.reshape(-1,1)
+    y = y1.reshape(-1,1)
     #y = y.reshape(-1, 1)
     step_size =  (x1[2] - x1[1])
 
@@ -82,12 +82,12 @@ if __name__ == '__main__':
     #Optimize hyperparameters of the GP
     h=1
 
-    #[l, h]= gp_regression.hyper_param_optimize( x, y)
+    #[h, ]= gp_regression.hyper_param_optimize( x, y)
     [h, l] =gp_regression.hyper_param_opt(x, y, 0)
     #l= np.diag(l)
 
-    print(l)
     print(h)
+    print(l)
 
     #Compute and Vizualize
     sim_time =1

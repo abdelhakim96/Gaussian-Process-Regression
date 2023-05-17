@@ -86,13 +86,16 @@ class Gaussian_Process_Regression(object):
         """
         #sqdist = np.sum(x1 ** 2, 1).reshape(-1, 1) + np.sum(x2 ** 2, 1) - 2 * np.dot(x1, x2.T)
         #K =h ** 2 * np.exp(-0.5 / l ** 2 * sqdist)
-        K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
+        #K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
         #a=1
         #return K
         #K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
-        #sqdist = np.sum(np.dot(x1 ** 2,l), 1).reshape(-1, 1) + np.sum(np.dot(x2 ** 2,l), 1) - 2 * np.dot(x1, x2.T)
-        #K = h ** 2 * np.exp(-0.5 ** 2 * sqdist)
+       # sqdist = np.sum(np.dot(x1 ** 2,l), 1).reshape(-1, 1) + np.sum(np.dot(x2 ** 2,l), 1) - 2 * np.dot(x1, x2.T)
+       # K = h ** 2 * np.exp(-0.5 ** 2 * sqdist)
        # sqdist = np.sum(X1 ** 2, 1).reshape(-1, 1) + np.sum(X2 ** 2, 1) - 2 * np.dot(X1, X2.T)
+
+        #sqdist = np.sum(x1 ** 2, 1).reshape(-1, 1) + np.sum(x2 ** 2, 1) - 2 * np.dot(x1, x2.T)
+        #K = h ** 2 * np.exp(-0.5 / l ** 2 * sqdist)
         return K
 
 
@@ -154,6 +157,8 @@ class Gaussian_Process_Regression(object):
             Minimization objective.
         """
         #Y_train = Y_train.ravel()
+        #X_train = X_train.ravel()
+
         #Y_train = np.sum(Y_train, 1)
 
         def nll_naive(theta):
@@ -162,24 +167,30 @@ class Gaussian_Process_Regression(object):
             # the implementation in nll_stable below.
             #h_th = theta[1]
             h_th =1
-            l_th = theta
+            l_th = theta[0]
            # l_th  =np.diag( theta[1:])
             K = self.squared_exp_kernel( h_th,l_th, X_train, X_train)
-            b =0.5 * np.log(np.linalg.det(K)) + \
-                0.5 * Y_train.dot(np.linalg.inv(K).dot(Y_train)) + \
-                0.5 * len(X_train) * np.log(2 * np.pi)
-            th =theta
-            a=1
+            #K = np.squeeze(K)
+
+            #b =0.5 * np.log(np.linalg.det(K)) + \
+            #    0.5 * Y_train.dot(np.linalg.inv(K).dot(Y_train)) + \
+            #    0.5 * len(X_train) * np.log(2 * np.pi)
+            #a = theta
+            #0.5 * Y_train.T.dot(np.linalg.inv(K).dot(Y_train))  # Transpose Y_train using .T
+            a = 0.5 * Y_train.T@(np.linalg.inv(K)@Y_train)
+            b=1
+            #0.5 * Y_train.dot(np.linalg.inv(K.T).dot(Y_train))  # Transpose np.linalg.inv(K) using .T
             return 0.5 * np.log(np.linalg.det(K)) + \
-                0.5 * Y_train.dot(np.linalg.inv(K).dot(Y_train)) + \
+                (0.5 * Y_train.T@(np.linalg.inv(K)@Y_train)).ravel() + \
                 0.5 * len(X_train) * np.log(2 * np.pi)
+            # 0.5 * Y_train.dot(np.linalg.inv(K).dot(Y_train)) + \
 
         def nll_stable(theta):
             # Numerically more stable implementation of Eq. (11) as described
             # in http://www.gaussianprocess.org/gpml/chapters/RW2.pdf, Section
             # 2.2, Algorithm 2.1.
             h_th = 1
-            l_th = theta[0]
+            l_th = theta
             #l_th = np.diag(theta[1:])
             K = self.squared_exp_kernel( h_th,l_th, X_train, X_train)  + \
                 noise ** 2 * np.eye(len(X_train))
@@ -204,11 +215,11 @@ class Gaussian_Process_Regression(object):
     def hyper_param_opt(self,X_train, Y_train, noise):
         #d= X_train.shape[1]
         d =1
-        theta_0 = 0.01*np.ones(d+1)
-        theta_0 =0.01
-        res = minimize(self.negative_log_likelyhood(X_train, Y_train, noise), theta_0,
+        theta_0 = 0.01 * np.ones(d+1)
+        theta_0 = 30
+        res = minimize(self.negative_log_likelyhood(X_train, Y_train, 0.0), theta_0,
                        bounds=None,
-                       method='L-BFGS-B')
+                       method='L-BFGS-B', options={'gtol': 1e-6})
 
         # Store the optimization results in global variables so that we can
         # compare it later with the results from other implementations.
@@ -216,6 +227,8 @@ class Gaussian_Process_Regression(object):
         sigma_f_opt =1
         l_opt = res.x[0]
         return [sigma_f_opt,l_opt]
+
+    '''
     def log_max_likelyhood(self,x, y, noise):
         def step(theta):
             K =  self.squared_exp_fun(theta[1], theta[0], x, x)
@@ -224,6 +237,8 @@ class Gaussian_Process_Regression(object):
                    0.5 * y.T @ np.linalg.pinv(K) @ y + \
                    0.5 * len(x) * np.log(2*np.pi)
         return step
+
+    
     def hyper_param_optimize(self,x, y):
         res = minimize( self.log_max_likelyhood(x, y, 0.0), [1, 1],
                    bounds=((1e-20, None), (1e-20, None)),
@@ -231,3 +246,4 @@ class Gaussian_Process_Regression(object):
 
         l_opt, sigma_f_opt = res.x
         return l_opt, sigma_f_opt
+    '''
