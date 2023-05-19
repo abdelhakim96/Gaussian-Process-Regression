@@ -31,7 +31,7 @@ if __name__ == '__main__':
     mu_0 = 0.0 #prior mean
     h = 1 #amplitude coff
     l = 1 #timescale
-
+    noise =0.001
     #simulation params
     animate = 1 #Flag to determine if you want to animate TRUE: will create animation, FALSE: will just plot
     pred_ahead = 2
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     iter = 2000
 
     # Input Signal params
-    n_data = 80
+    n_data =40
     n_ind = 10
     n_test = 100
     period = 1
@@ -57,8 +57,8 @@ if __name__ == '__main__':
 
     #x_s = x_s.reshape(-1, 1)
 
-    [y1,u,xn,yn]= gp_regression.generate_sine(period, amplitude,x1,n_data, n_ind, n_test)
-    [ys,u,xx,yn]= gp_regression.generate_sine(period, amplitude,x1_s,n_test, n_test, n_test)
+    [y1,u,xn,yn]= gp_regression.generate_sine(period, amplitude,x1,n_data, n_ind, n_test,noise)
+    [ys,u,xx,yn]= gp_regression.generate_sine(period, amplitude,x1_s,n_test, n_test, n_test,noise)
     x2_s = np.diff(ys)
     x2_s = np.insert(x2_s, 0, 0)
     x_s = np.c_[x1_s, x2_s]
@@ -80,19 +80,30 @@ if __name__ == '__main__':
     #y = y.reshape(-1, 1)
     #step_size = 1
     #Optimize hyperparameters of the GP
-    h=1
 
-    #[h, ]= gp_regression.hyper_param_optimize( x, y)
-    [h, l] =gp_regression.hyper_param_opt(x, y, 0)
+
+
+    #[h, l] =gp_regression.hyper_param_opt(x, y, 0)
     #l= np.diag(l)
 
-    print(h)
-    print(l)
-
+    h0=10
+    l0=0.001
+    h=h0
+    l=l0
+    learn_rate =0.001
     #Compute and Vizualize
     sim_time =1
     frames = []
-
+    opt_iter = 1000
+    eps = 0.00001
+    #[h, l] = gp_regression.hyper_param_opt(x, y,h0,l0, 0.0)
+    [l, h] = gp_regression.hyper_param_optimize_simple(h0,l0,x,y,noise)
+   # [h, l,res] = gp_regression.update_params_g_descent(h0, l0, x, y, opt_iter,learn_rate,eps,noise)
+    cost = gp_regression.log_max_likelihood( h, l,x, y,noise)
+    #K = gp_regression.squared_exp_kernel(h, l, x,x)
+    print(cost)
+    print(h)
+    print(l)
     for i in range (sim_time):
 
 
