@@ -73,7 +73,10 @@ class Gaussian_Process_Regression(object):
         return mu_s, cov_s
 
 
-    def squared_exp_kernel(self,h, l, x1, x2):
+
+
+
+    def squared_exp_kernel(self,h, delta, x1, x2):
         """
         Isotropic squared exponential kernel.
 
@@ -85,23 +88,65 @@ class Gaussian_Process_Regression(object):
             (m x n) matrix.
         """
         #sqdist = np.sum(x1 ** 2, 1).reshape(-1, 1) + np.sum(x2 ** 2, 1) - 2 * np.dot(x1, x2.T)
-        #K =h ** 2 * np.exp(-0.5 / l ** 2 * sqdist)
-        K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
+
+       # K = h ** 2 * np.exp(-0.5 / l ** 2 * sqdist)
+
+        #multivariate
+        K1 = np.ones((len(x1),len(x2)))
+        K = np.ones((len(x1),len(x2)))
+        #l1=60
+        #delta = np.diag([l,l1])
+        n_inputs = np.shape(x1)[1]
+        '''
+        for kk in range(n_inputs):
+            for i in range(len(x1)):
+                for j in range(len(x2)):
+                    #K1[i,j] = (h ** 2)  * np.exp((-(x1[i,kk] - x2[j,kk]) ** 2 )/ (2 * delta[kk,kk] ** 2))
+                    K1[i, j] = (h ** 2) * np.exp((-(x1[i, kk] - x2[j, kk]) ) @ delta[kk, kk]
+            K = K * K1
+        '''
+        #diffx=np.zeros((len(x1),len(x2)))
+        #for i in range(len(x1)):
+        #    for j in range(len(x2)):
+        #        diffx[i,j] = x1[i,:]-x2[j,:]
+       # d = np.sqrt()
+        #diffx= sum(diffx)
 
 
-        #sqdist = np.sum(x1 ** 2, 1).reshape(-1, 1) + np.sum(x2 ** 2, 1) - 2 * np.dot(x1, x2.T)
-        #K = h ** 2 * np.exp(-0.5 / l ** 2 * sqdist)
+        delta = np.diag(delta)
+        #delta[1,1]=0.0
+        diffx =x1[:, None]-x2
+        a = diffx@np.linalg.pinv(delta)
+
+        #dist = a[:] @ diffx[:]
+        #dist = np.dot(a[:],  diffx[:])
+        dist=np.zeros((len(x1),len(x2)))
+        for i in range(len(x1)):
+            for j in range(len(x2)):
+                dist[i,j]= np.dot(diffx[i,j,:].T,  np.linalg.pinv(delta)@diffx[i,j,:])
+
+
+
+        K = h* np.exp(-dist)
+        a=1
+        #delta[0, 0]=0.3
+        #delta[1,1]=10000
+       # sqdist = np.sum(x1 ** 2, 1).reshape(-1, 1) + np.sum(x2 ** 2, 1) - 2 * np.dot(x1, x2.T)
+       # K = h ** 2 * np.exp(-0.5 / delta[0,0] ** 2 * sqdist)
+        sqdist = np.sum(x1 ** 2, 1).reshape(-1, 1) + np.sum(x2 ** 2, 1)
+        delta_inv_sq = np.linalg.pinv(delta)**2
+        delta_inv_sq = np.linalg.pinv(delta) ** 2
+        sqdist = sqdist - 2 * np.dot(x1, delta_inv_sq @ x2.T)
+        #malh= - 0.5 * delta_inv_sq @sqdist
+
+        #K = h ** 2 * np.exp(-0.5 * sqdist)
+
+
+       # K = h ** 2 * np.exp(-0.5 / l ** 2 * sqdist)
 
         #a=1
-        #return K
-        #K = (h ** 2)  * np.exp((-(x1[:, None] - x2) ** 2 )/ (2 * l ** 2))
-       # sqdist = np.sum(np.dot(x1 ** 2,l), 1).reshape(-1, 1) + np.sum(np.dot(x2 ** 2,l), 1) - 2 * np.dot(x1, x2.T)
-       # K = h ** 2 * np.exp(-0.5 ** 2 * sqdist)
-       # sqdist = np.sum(X1 ** 2, 1).reshape(-1, 1) + np.sum(X2 ** 2, 1) - 2 * np.dot(X1, X2.T)
-
-        #sqdist = np.sum(x1 ** 2, 1).reshape(-1, 1) + np.sum(x2 ** 2, 1) - 2 * np.dot(x1, x2.T)
-        #K = h ** 2 * np.exp(-0.5 / l ** 2 * sqdist)
-        return np.squeeze(K)
+        KK = (h ** 2) * np.exp((-(x1[:, None] - x2) ** 2) / (2 * delta[0] ** 2))
+        return K
 
 
     def generate_sine(self,period,amplitude,x,n_data, n_ind,n_test, noise):
@@ -145,7 +190,7 @@ class Gaussian_Process_Regression(object):
 
         return mu, cov
 
-    def negative_log_likelyhood(self,X_train, Y_train, noise, naive=False):
+    def negative_log_likelyhood(self,X_train, Y_train, noise, naive=True):
         """
         Returns a function that computes the negative log marginal
         likelihood for training data X_train and Y_train and given
@@ -171,8 +216,8 @@ class Gaussian_Process_Regression(object):
             # in this article but is numerically less stable compared to
             # the implementation in nll_stable below.
             #h_th = theta[1]
-            h_th =theta[1]
-            l_th = theta[0]
+            h_th =theta[0]
+            l_th = theta[1:]
            # l_th  =np.diag( theta[1:])
             K = self.squared_exp_kernel( h_th,l_th, X_train, X_train)  + \
             noise**2 * np.eye(len(X_train))
@@ -185,11 +230,11 @@ class Gaussian_Process_Regression(object):
             #0.5 * Y_train.T.dot(np.linalg.inv(K).dot(Y_train))  # Transpose Y_train using .T
             a=1
             #K= np.squeeze(K)
-            a = 0.5 * Y_train.T@(np.linalg.inv(K)@Y_train)
+            a = 0.5 * Y_train.T@(np.linalg.pinv(K)@Y_train)
             b=1
-            print(K)
-            print(theta[0])
-            print(theta[1])
+           # print(K)
+           # print(theta[0])
+           # print(theta[1])
             #0.5 * Y_train.dot(np.linalg.inv(K.T).dot(Y_train))  # Transpose np.linalg.inv(K) using .T
             return 0.5 * np.log(np.linalg.det(K)) + \
                 (0.5 * Y_train.T@(np.linalg.inv(K)@Y_train)).ravel() + \
@@ -203,8 +248,15 @@ class Gaussian_Process_Regression(object):
             #h_th = theta[0]
             #l_th = theta[1]
             #l_th = np.diag(theta[1:])
-            K = self.squared_exp_kernel( theta[1],theta[0], X_train, X_train)  + \
-                noise ** 2 * np.eye(len(X_train))
+            h_th =theta[0]
+            l_th = theta[1:]
+            K = self.squared_exp_kernel( h_th,l_th, X_train, X_train)  + \
+                noise  * np.eye(len(X_train))
+
+           # K= np.round(K, 1)
+           # eps = 1e-02
+           # K[K <= 0] = eps
+
             L = np.linalg.cholesky(K)
 
             S1 = solve_triangular(L, Y_train, lower=True)
@@ -224,19 +276,21 @@ class Gaussian_Process_Regression(object):
     # initializations to avoid local minima but this is skipped here for
     # simplicity.
     def hyper_param_opt(self,X_train, Y_train,h0,l0, noise):
-        #d= X_train.shape[1]
-        d =1
-        #theta_0 = 0.01 * np.ones(d+1)
-        theta_0 = [l0,h0]
+        d= X_train.shape[1]
+       # d =1
+        theta_0 = 0.1 * np.ones(d+1)
+        #theta_0 = [l0,h0]
+
+        bounds = [(0.01, 10)] * (d+1)
         res = minimize(self.negative_log_likelyhood(X_train, Y_train, 0.0), theta_0,
-                       bounds=((1e-5, 10), (1e-5, 10)),
-                       method='L-BFGS-B',   options={'gtol': 1e-8})
+                       bounds=bounds,
+                       method='L-BFGS-B',   options={'gtol': 1e-18})
 
         # Store the optimization results in global variables so that we can
         # compare it later with the results from other implementations.
         #sigma_f_opt = res.x[1]
-        l_opt = res.x[0]
-        sigma_f_opt = res.x[1]
+        l_opt = res.x[1:]
+        sigma_f_opt = res.x[0]
 
         return [sigma_f_opt,l_opt]
 
@@ -300,23 +354,40 @@ class Gaussian_Process_Regression(object):
 
     def log_max_likelyhood_simple(self,x, y, noise):
         def step(theta):
-            K =  self.squared_exp_kernel(theta[1], theta[0], x, x)+\
+            delta = theta[1:]
+            #delta = np.diag(delta)
+
+            a=1
+            K =  self.squared_exp_kernel(theta[0], delta, x, x)+\
               noise ** 2 * np.eye(len(x))
-            a= np.sum(np.log(np.diagonal(np.linalg.cholesky(K)))) + \
+
+            a1=  0.5 * np.log(np.linalg.det(K))
+            a2=  0.5 * y.T @ np.linalg.pinv(K) @ y
+           # a3 = np.sum(np.log(np.diagonal(np.linalg.cholesky(K))))
+            a4 = 0.5 * y.T @ np.linalg.pinv(K) @ y
+
+
+            a=  0.5 * np.log(np.linalg.det(K)) + \
                    0.5 * y.T @ np.linalg.pinv(K) @ y + \
                    0.5 * len(x) * np.log(2*np.pi)
-            print(a)
-
-            return a.ravel()
+            #a= 0.5 * np.log(np.linalg.det(K)) + \
+            #        0.5 * y.T @ np.linalg.pinv(K) @ y + \
+            #        0.5 * len(x) * np.log(2*np.pi)
+            a= a.ravel()
+            b=1
+            return a
 
 
         return step
 
     
     def hyper_param_optimize_simple(self,h0,l0,x, y,noise):
-        res = minimize( self.log_max_likelyhood_simple(x, y, noise), [h0, l0],
-                   bounds=((1e-10, None), (1e-10, None)),
-                   method='L-BFGS-B',options={'gtol': 1e-8})
+        d= x.shape[1]
+        theta_0 = 1* np.ones(d+1)
+        res = minimize( self.log_max_likelyhood_simple(x, y, noise), theta_0,
+                   method='L-BFGS-B',bounds=((1e-5, 10), (1e-5, 10)))
 
-        l_opt, sigma_f_opt = res.x
+
+        sigma_f_opt = res.x[0]
+        l_opt = res.x[1:]
         return l_opt, sigma_f_opt

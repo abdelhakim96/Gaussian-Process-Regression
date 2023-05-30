@@ -59,7 +59,7 @@ def plot_gp(y,x,x_s,mu,cov, mu_s, cov_s):
     plt.show()
 
 
-def plot_gp_dynamic(y_train, x_train, x_test, t_train,t_test, mu, cov, pred_ahead):
+def plot_gp_dynamic(y_train, x_train, x_test, t_train,t_test, mu, cov, pred_ahead,mu1,cov1):
     # Select the last 100 elements
 
 
@@ -75,15 +75,26 @@ def plot_gp_dynamic(y_train, x_train, x_test, t_train,t_test, mu, cov, pred_ahea
 
     plt.plot(t_test, mu , color='blue', label='prediction')
 
-
     plt.fill_between(
-        t_test[:,0],
+        t_test,
         mu[:,0] - np.sqrt(np.diag(cov)),
         mu[:,0] + np.sqrt(np.diag(cov)),
         color='gray',
         alpha=0.4,
         label='Uncertainty'
     )
+
+    plt.plot(t_test, mu1 , color='blue', label='prediction')
+
+    plt.fill_between(
+        t_test,
+        mu1[:,0] - np.sqrt(np.diag(cov1)),
+        mu1[:,0] + np.sqrt(np.diag(cov1)),
+        color='blue',
+        alpha=0.4,
+        label='Uncertainty'
+    )
+
 
 
 
