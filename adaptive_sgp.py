@@ -56,3 +56,21 @@ class Adaptive_Sparse_GPR(object):
 
 
         return mu, cov
+
+    def fast_adaptive_gp (self, y_t, x_t, X_data,Y_data,X_test, U, h,l,mu_0,σ,λ,delta):
+
+        K_uu = self.squared_exp_kernel(h, l, U, U)
+        K_ux = self.squared_exp_kernel(h, l, U, X_data)
+        K_xu = self.squared_exp_kernel(h, l,X_data, U)
+        K_ss = self.squared_exp_kernel(h, l,X_test, X_test)
+        K_su = self.squared_exp_kernel(h, l,X_test, U)
+        K_us = self.squared_exp_kernel(h, l,U, X_test)
+
+        #note: check if K_xu = K_ux^T
+
+        k_t = np.dot(U,x_t)
+        B_λ= np.linalg.pin(K_uu + σ^-2 (λ * (K_ux@delta@K_xu) + np.transpose(k_t) @ k_t))
+        mu_λs = σ^-2 * K_su @ (B_λ)@ ( λ (K_ux@delta @Y_data) + np.transpose(k_t)*y_t)
+        var_λs = K_ss + K_su ((B_λ)- np.linalg.pinv(K_uu))@K_us
+
+        return  mu_λs, var_λs
