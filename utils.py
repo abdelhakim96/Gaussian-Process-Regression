@@ -21,7 +21,7 @@ def gen_sine(x,f,mean):
 def plot_static(X_data,Y_data,X_test,mu,var):
 
     plt.scatter(X_data, Y_data, color='red', label='Data')
-    plt.plot(X_test, mu, color='blue', label='Prediction')
+    plt.plot(X_test, mu[:,0], color='blue', label='Prediction')
     plt.fill_between(
         X_test[:,0],
         mu[:,0] - np.sqrt(np.diag(var)),

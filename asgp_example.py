@@ -22,20 +22,27 @@ if __name__ == '__main__':
    as_gp = Adaptive_Sparse_GPR()
 
    # parameters
-   n = 40  #number of data points
+   n = 20  #number of data points
+   n_ind =20
    n_test = 100
    mu_0= 0 #prior mean
    h_0 = 1 #initializaton of scaling param
    l_0 = [1] #initializaton of time-scale param
-   σ = 0
-   λ = 1
+   σ = 0.01
+   λ = 0.97
+   delta = np.zeros((n,n))
+   # Calculate Delta
+   #for i in range (n):
+   #    delta[i,i] =  λ**(n-i)
+
+
    #generate sine wave
    X_data = np.linspace(0,2*np.pi,n)
    X_data = X_data.reshape(n, 1)
    Y_data= gen_sine(X_data,f=1, mean=0)
-   U = np.linspace(0,2*np.pi,int(n/2))
-   U = U.reshape(int(n/2), 1)
-   X_test = np.linspace(0,2*np.pi,n_test)
+   U = np.linspace(0,2*np.pi,n_ind)
+   U = U.reshape(n_ind, 1)
+   X_test = np.linspace(0,2*np.pi+1,n_test)
    X_test = X_test.reshape(n_test, 1)
 
    #[mu, var] = as_gp.basic_gp(h_0, l_0, mu_0, Y_data, X_data, X_test)
@@ -45,8 +52,10 @@ if __name__ == '__main__':
     # compute new mu_λs, var_λs
    x_t = X_data[len(X_data)-1]+0.01
    y_t =gen_sine(x_t ,f=1, mean=0)
+
    [mu_λs, var_λs] = as_gp.fast_adaptive_gp( y_t, x_t, X_data,Y_data,X_test,U, h_0,l_0,mu_0,σ,λ,delta)
 
+   plot_static(X_data, Y_data, X_test, mu_λs, var_λs)
 
 
 
