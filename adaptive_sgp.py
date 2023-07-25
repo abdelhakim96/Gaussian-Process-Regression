@@ -87,7 +87,8 @@ class Adaptive_Sparse_GPR(object):
         B_λ= np.linalg.pinv(K_uu + σ **(-2) * (λ * (K_ux @ delta @ K_xu) +
                                                np.transpose(k_t1) @ k_t1) )
 
-        mu_λs = σ **(-2) * K_su @ (B_λ)@ ( λ * (K_ux @ delta @Y_data) + np.transpose(k_t1)*y_t)
+        mu_λs = σ **(-2) * K_su @ (B_λ)@ ( λ * (K_ux @ delta @Y_data) +
+                                           np.transpose(k_t1)*y_t)
         var_λs = K_ss + K_su@ ((B_λ)- np.linalg.pinv(K_uu))@K_us
 
 
@@ -113,7 +114,7 @@ class Adaptive_Sparse_GPR(object):
 
             A = np.transpose(self.squared_exp_kernel(h, l,X_test, u_k1))
             K_su_k1 = np.hstack([K_su, self.squared_exp_kernel(h, l,X_test, u_k1)])
-            K_ux_k1 = np.hstack([K_ux, self.squared_exp_kernel(h, l,U, u_k1)])
+            K_ux_k1 = np.vstack([K_ux, self.squared_exp_kernel(h, l, u_k1,X_data)])
             K_xx_t1 = np.hstack([K_xx, self.squared_exp_kernel(h, l,X_data, u_k1)])
 
 
@@ -123,6 +124,7 @@ class Adaptive_Sparse_GPR(object):
             K_uu_k1 = np.hstack([K_uu, self.squared_exp_kernel(h, l, U, u_k1)])
             a = np.hstack([self.squared_exp_kernel(h, l, u_k1, U), self.squared_exp_kernel(h, l, u_k1, u_k1)])
             K_uu_k1 = np.vstack([K_uu_k1, a])
+            K_us_k1 = np.vstack([K_us, self.squared_exp_kernel(h, l, u_k1, X_test)])
 
             #calculate new B_λ_k1
 
@@ -137,19 +139,21 @@ class Adaptive_Sparse_GPR(object):
             B_A2 = np.vstack([b1_k1,b2_k1] )
 
             B_λk1 = np.hstack([B_A1, B_A2])
+            B_λk1 = np.linalg.pinv(B_λk1)
+            #X_data = np.vstack([X_data,u_k1])
+            #Y_data = np.vstack([Y_data, gen_sine(X_data,f=1, mean=0)])
+            #U = np.vstack([U,u_k1])
 
-            X_data = np.vstack([X_data,u_k1])
-            Y_data = np.vstack([Y_data, gen_sine(X_data,f=1, mean=0)])
-            U = np.vstack([U,u_k1])
+            #delta = np.zeros((len(X_data), len(X_data)))
+            #for i in range(len(X_data)):
+            #    delta[i, i] = λ ** (len(X_data) - i)
 
-            delta = np.zeros((len(X_data), len(X_data)))
-            for i in range(len(X_data)):
-                delta[i, i] = λ ** (len(X_data) - i)
-
-
+           # mu_λs = σ ** (-2) * K_su @ (B_λ) @ (λ * (K_ux @ delta @ Y_data) + np.transpose(k_t1) * y_t)
             mu_λs_k1 = σ ** (-2) * K_su_k1 @ B_λk1 @ (K_ux_k1 @ delta @ Y_data)
-            var_λs_k1 = K_ss + K_su_k1 @ ((B_λk1) - np.linalg.pinv(K_uu_k1)) @ K_su_k1
+            var_λs_k1 = K_ss + K_su_k1 @ ((B_λk1) - np.linalg.pinv(K_uu_k1)) @ K_us_k1
 
-
+            print(mu_λs_k1)
 
         return  mu_λs_k1, var_λs_k1
+
+       # return mu_λs, var_λs

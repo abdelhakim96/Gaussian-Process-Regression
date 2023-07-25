@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
    # parameters
    n = 20  #number of data points
-   n_ind =20
+   n_ind =10
    n_test = 100
    mu_0= 0 #prior mean
    h_0 = 1 #initializaton of scaling param
