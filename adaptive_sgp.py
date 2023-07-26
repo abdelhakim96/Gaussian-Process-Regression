@@ -152,7 +152,7 @@ class Adaptive_Sparse_GPR(object):
             mu_λs_k1 = σ ** (-2) * K_su_k1 @ B_λk1 @ (K_ux_k1 @ delta @ Y_data)
             var_λs_k1 = K_ss + K_su_k1 @ ((B_λk1) - np.linalg.pinv(K_uu_k1)) @ K_us_k1
 
-            print(mu_λs_k1)
+
 
         return  mu_λs_k1, var_λs_k1
 

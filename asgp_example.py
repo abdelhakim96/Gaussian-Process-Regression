@@ -50,12 +50,23 @@ if __name__ == '__main__':
 
     #Implementation of AGP
     # compute new mu_λs, var_λs
-   x_t = X_data[len(X_data)-1]+0.01
-   y_t =gen_sine(x_t ,f=1, mean=0)
+   x_t = X_data[len(X_data) - 1] + 0.01
+   x_test = X_test[len(X_test) - 1] + 0.01
 
-   [mu_λs, var_λs] = as_gp.fast_adaptive_gp( y_t, x_t, X_data,Y_data,X_test,U, h_0,l_0,mu_0,σ,λ,delta)
+   y_t = gen_sine(x_t, f=1, mean=0)
+   U_n = U
+   U_n = U
+   for i in range(100):
+       x_t = x_t + 0.1
+       x_test = x_test + 0.01
+       y_t =gen_sine(x_t ,f=1, mean=0)
+       X_test = np.append(X_test, x_test)
+       X_test = X_test.reshape(len(X_test), 1)
+       [mu_λs, var_λs] = as_gp.fast_adaptive_gp( y_t, x_t, X_data,Y_data,X_test,U, h_0,l_0,mu_0,σ,λ,delta)
+       U_n =  np.append(U_n, x_t)
 
-   plot_static(X_data, Y_data, X_test, mu_λs, var_λs)
+       Y_U =  gen_sine(U_n, f=1, mean=0)
+       plot_static(X_data, Y_data, X_test, mu_λs, var_λs, U_n, Y_U)
 
 
 

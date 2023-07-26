@@ -18,9 +18,11 @@ def gen_sine(x,f,mean):
 
 
 
-def plot_static(X_data,Y_data,X_test,mu,var):
+def plot_static(X_data,Y_data,X_test,mu,var, U_n, Y_U):
 
     plt.scatter(X_data, Y_data, color='red', label='Data')
+    plt.scatter(U_n, Y_U, color='green', label='pseudo-points')
+
     plt.plot(X_test, mu[:,0], color='blue', label='Prediction')
     plt.fill_between(
         X_test[:,0],
