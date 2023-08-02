@@ -4,8 +4,9 @@ from scipy.optimize import minimize
 from utils import gen_sine
 
 class Adaptive_Sparse_GPR(object):
-    #def __init__(self):
-       # print('GPR Constructor')
+    def __init__(self):
+        C_t1 = None
+        print('GPR Constructor')
 
     def squared_exp_kernel(self, h, delta, x1, x2):
 
@@ -57,8 +58,8 @@ class Adaptive_Sparse_GPR(object):
 
         return mu, cov
 
-    def fast_adaptive_gp (self, y_t, x_t, X_data,Y_data,X_test, U, h,l,mu_0,σ,λ,delta):
-
+    def fast_adaptive_gp (self, y_t, x_t, X_data,Y_data,X_test, U, h,l,mu_0,σ,λ,delta,it):
+        T=10
 
 
         for i in range(len(X_data)):
@@ -81,15 +82,27 @@ class Adaptive_Sparse_GPR(object):
         u_k1 = np.array([1])
         u_k1 = u_k1.reshape(1, 1)
         k_t1 = np.dot(U,x_t)
+        k_uT =  np.dot(U,X_data[it-T])
+
         #k_t_T = np.dot(U,X_data[])
 
 
-        B_λ= np.linalg.pinv(K_uu + σ **(-2) * (λ * (K_ux @ delta @ K_xu) +
-                                               np.transpose(k_t1) @ k_t1) )
+        if (it == 0):
+            self.C_t1 = K_ux @ delta @ Y_data
+            print('calculate C')
+        #self.C_t1 = ( λ * K_ux @ delta @ Y_data + np.transpose(k_t1)*y_t)
 
-        mu_λs = σ **(-2) * K_su @ (B_λ)@ ( λ * (K_ux @ delta @Y_data) +
-                                           np.transpose(k_t1)*y_t)
-        var_λs = K_ss + K_su@ ((B_λ)- np.linalg.pinv(K_uu))@K_us
+
+        #self.C_t1 = λ *  self.C_t1 + np.transpose(k_t1) * y_t
+        #B_λt1= np.linalg.pinv(K_uu + σ **(-2) * (λ * (K_ux @ delta @ K_xu) +
+        #                                       k_t1 @ np.transpose(k_t1) ))          #eq. 18
+
+        self.C_t1 = λ * self.C_t1 + np.transpose(k_t1) * y_t - λ * k_uT * Y_data[it-T]
+        B_λt1 = np.linalg.pinv(K_uu + σ ** (-2) * (λ * (K_ux @ delta @ K_xu) +
+                                                   k_t1 @ np.transpose(k_t1)) - np.transpose(λ) * k_uT@np.transpose(k_uT) )     # eq. 19
+
+        mu_λs = σ **(-2) * np.transpose(K_us) @ (B_λt1)@ ( self.C_t1)
+        var_λs = K_ss + K_su@ ((B_λt1)- np.linalg.pinv(K_uu))@K_us
 
 
         #Add new inducing point
@@ -105,8 +118,8 @@ class Adaptive_Sparse_GPR(object):
        # for m in M:
        #     R_tot = R_m
 
-
-        if (R_tot>0):
+        flag = 0
+        if (R_tot>0 & flag == 1):
             u_k1= x_t.reshape(1, 1)
             # Add new inducing point
 
@@ -154,6 +167,6 @@ class Adaptive_Sparse_GPR(object):
 
 
 
-        return  mu_λs_k1, var_λs_k1
+        return  mu_λs, var_λs
 
        # return mu_λs, var_λs

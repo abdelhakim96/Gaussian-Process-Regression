@@ -56,17 +56,33 @@ if __name__ == '__main__':
    y_t = gen_sine(x_t, f=1, mean=0)
    U_n = U
    U_n = U
+   count =1
+   dx = 0.2
    for i in range(100):
-       x_t = x_t + 0.1
-       x_test = x_test + 0.01
+       x_t = x_t + dx
+       x_test = x_test  + dx
        y_t =gen_sine(x_t ,f=1, mean=0)
        X_test = np.append(X_test, x_test)
        X_test = X_test.reshape(len(X_test), 1)
-       [mu_λs, var_λs] = as_gp.fast_adaptive_gp( y_t, x_t, X_data,Y_data,X_test,U, h_0,l_0,mu_0,σ,λ,delta)
-       U_n =  np.append(U_n, x_t)
+       X_data = np.append(X_data, x_t)
+       X_data = X_data.reshape(len(X_data), 1)
+       Y_data = np.append(Y_data,  y_t)
+       Y_data = Y_data.reshape(len(Y_data), 1)
+       delta = np.zeros((len(X_data), len(X_data)))
+       for j in range(len(X_data)):
+           delta[j, j] = λ ** (len(X_data) - j)
+       print('size X_test: ', len(X_test))
+      # if (count == 5):
+      #     U_n =  np.append(U_n, U_n[len(U_n)-1]+dx*5)
+      #     U_n = U_n.reshape(len(U_n), 1)
 
-       Y_U =  gen_sine(U_n, f=1, mean=0)
+       #    count = 1
+       count = count+1
+       [mu_λs, var_λs] = as_gp.fast_adaptive_gp( y_t, x_t, X_data,Y_data,X_test,U_n, h_0,l_0,mu_0,σ,λ,delta,i)
+
+       Y_U = np.zeros(len(U_n))
+       #Y_U =  gen_sine(U_n, f=1, mean=0)
        plot_static(X_data, Y_data, X_test, mu_λs, var_λs, U_n, Y_U)
-
+   plt.show()
 
 

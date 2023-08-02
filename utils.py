@@ -21,7 +21,7 @@ def gen_sine(x,f,mean):
 def plot_static(X_data,Y_data,X_test,mu,var, U_n, Y_U):
 
     plt.scatter(X_data, Y_data, color='red', label='Data')
-    plt.scatter(U_n, Y_U, color='green', label='pseudo-points')
+    plt.scatter(U_n, Y_U, color='green', label='pseudo-points', marker ='x')
 
     plt.plot(X_test, mu[:,0], color='blue', label='Prediction')
     plt.fill_between(
@@ -35,5 +35,8 @@ def plot_static(X_data,Y_data,X_test,mu,var, U_n, Y_U):
     plt.xlabel('t')
     plt.ylabel('f(t)')
     plt.legend()
-    plt.show()
+    plt.show(block=False)
+    plt.pause(0.001)
+    plt.clf()
+   #plt.show()
     return
