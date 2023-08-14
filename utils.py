@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import os
-
+import matplotlib
+matplotlib.use('TkAgg')
 """
 Python script for visualisation of GPR
 
@@ -35,9 +36,9 @@ def plot_static(X_data,Y_data,X_test,mu,var, U_n, Y_U,x_t,y_t):
     # )
     plt.xlabel('t')
     plt.ylabel('f(t)')
-    plt.legend()
+    #plt.legend()
     plt.show(block=False)
-    plt.pause(0.001)
+    plt.pause(0.00001)
     plt.clf()
    #plt.show()
     return

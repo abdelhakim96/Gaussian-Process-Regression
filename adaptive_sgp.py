@@ -5,29 +5,56 @@ from utils import gen_sine
 import random
 
 class Adaptive_Sparse_GPR(object):
-    def __init__(self):
-        C_t1 = None
-        U = None
-        B_λk = None
-        print('GPR Constructor')
-        Kuu_k1= None
-        Kux_k1 = None
-        KK = None
+    def __init__(self, h_0, l_0, X_data, Y_data, U_0, X_test,σ, λ, Delta,R_th ):
+        self.Rth= R_th
+        self.h= h_0
+        self.l= l_0
+        self.λ = λ
+        self.σ = σ
+        self.delta = Delta
+        self.C_t1 = None
+        self.U = U_0
+        self.T = int(len(X_data))
+        self.B_λk = None
+        self.Kuu_k1= None
+        self.Kux_k1 = None
+        self.Kus_k1 = None
+        self.KK = None
+        self.k_t1 = None
+        self.B_λ = None
+        self.X_data = X_data
+        self.x_t= X_data[len(X_data) - 1].reshape(1, 1)
+        self.u_k1= X_data[len(X_data) - 1].reshape(1, 1)
+
+        print('AGPR Constructor')
+        self.initialize_matrices_at_it_0(h_0, l_0, X_data, Y_data, X_test,Delta )
+
         
+    def initialize_matrices_at_it_0(self, h, l, X_data, Y_data, X_test,delta ):
+        #self.U = U
+        self.k_t1 = self.squared_exp_kernel(h,l,self.U, X_test[len(X_test)-1])
+        self.Kuu = self.squared_exp_kernel(h,l,self.U, self.U)
+        self.Kux = self.squared_exp_kernel(h,l,self.U, self.U)
+        self.Kus = self.squared_exp_kernel(h,l,self.U, self.U)
+
+        self.K_us = self.squared_exp_kernel(h, l, self.U, X_test)
+        self.K_ux = self.squared_exp_kernel(h, l, self.U, X_data)
+        self.K_uu = self.squared_exp_kernel(h, l, self.U, self.U)
+        self.k_t1 = self.squared_exp_kernel(h, l, self.U, self.x_t)
+        self.K_uxk1 = self.squared_exp_kernel(h, l, self.U, self.u_k1)
+        self.C = self.K_ux@ delta @ Y_data
+        self.KK = self.K_ux @ delta @ np.transpose(self.K_ux)
+
+
+
     def squared_exp_kernel(self, h, delta, x1, x2):
 
 
-
-        # multivariate
-        K1 = np.ones((len(x1), len(x2)))
         K = np.ones((len(x1), len(x2)))
 
         n_inputs = np.shape(x1)[1]
 
-
-
         delta = np.diag(delta)
-        # delta[1,1]=0.0
         diffx = x1[:, None] - x2
         a = diffx @ np.linalg.pinv(delta)
 
@@ -38,17 +65,7 @@ class Adaptive_Sparse_GPR(object):
                 dist[i, j] = np.dot(diffx[i, j, :].T, np.linalg.pinv(delta) @ diffx[i, j, :])
 
         K = h * np.exp(-dist)
-        a = 1
 
-        sqdist = np.sum(x1 ** 2, 1).reshape(-1, 1) + np.sum(x2 ** 2, 1)
-        delta_inv_sq = np.linalg.pinv(delta) ** 2
-        delta_inv_sq = np.linalg.pinv(delta) ** 2
-        sqdist = sqdist - 2 * np.dot(x1, delta_inv_sq @ x2.T)
-
-        KK = (h ** 2) * np.exp((-(x1[:, None] - x2) ** 2) / (2 * delta[0] ** 2))
-        KK= np.squeeze(KK, 2)
-
-        #print('KK-K',KK-K)
         return K
 
 
@@ -67,188 +84,101 @@ class Adaptive_Sparse_GPR(object):
 
         return mu, cov
 
-    def fast_adaptive_gp (self, y_t, x_t, X_data,Y_data,X_test, U_n, h,l,mu_0,σ,λ,delta,it):
-        T=20
-        if (it == 0):
-            self.U = U_n
+    #def fast_adaptive_gp (self, y_t, x_t, X_data,Y_data,X_test, U_n, h,l,mu_0,σ,λ,delta,it):
+    def fast_adaptive_gp(self, y_t, x_t, X_test, it):
+        ###################################
+        #PART1: Add new data point
+        ###################################
+        R_th = self.Rth
+        u_k1 = x_t
 
-        #for i in range(len(X_data)):
-          #  delta[i, i] = λ ** (len(X_data) - i)
+        self.k_t1 = self.squared_exp_kernel(self.h, self.l,self.U, x_t)
+        self.K_us = self.squared_exp_kernel(self.h, self.l,self.U, X_test)
 
+        # Calculate recursive terms when adding new data (eq. 17-18)
+        self.C = self.λ *  self.C + self.k_t1 @ y_t
+        self.KK = self.λ * self.KK + self.k_t1 @ np.transpose(self.k_t1)   # KK_t+1 =  λ KK_t + k_uxt * np.transpose(Kuxt))
 
-       # if it%40000000==0:
-       #     self.U = np.vstack([self.U, x_t])
-       #     self.U = np.delete(self.U, 0)
-       #     print('add inducing')
-       #     self.U = self.U.reshape(len(self.U), 1)
+        self.B_λ = np.linalg.inv(self.K_uu + self.σ **(-2) * (self.KK ))          #eq. 18
 
+        # Calculate prediction mean and variance after adding new data point
+        mu_λs = self.σ **(-2) * np.transpose(self.K_us) @ (self.B_λ)@ ( self.C)
+        #var_λs = K_ss + K_su@ ((B_λt1)- np.linalg.pinv(K_uu))@K_us
 
-        T = int(len(X_data))
-        R_th = 0.0001
-        K_xx = self.squared_exp_kernel(h, l, X_data, X_data)
-        K_uu = self.squared_exp_kernel(h, l, self.U, self.U)
-        K_ux = self.squared_exp_kernel(h, l, self.U, X_data)
-        K_xu = self.squared_exp_kernel(h, l,X_data, self.U)
-        K_ss = self.squared_exp_kernel(h, l,X_test, X_test)
-        K_su = self.squared_exp_kernel(h, l,X_test, self.U)
-        K_us = self.squared_exp_kernel(h, l,self.U, X_test)
-
-        #note: check if K_xu = K_ux^T
-        u_k1 = np.array([x_t])
-        u_k1 = u_k1.reshape(1, 1)
-
-        x_t = np.array([x_t])
-        x_t = x_t.reshape(1, 1)
-        y_t = np.array([y_t])
-        y_t = y_t.reshape(1, 1)
-        #print('x_t',x_t)
-        #print('y_t',y_t)
-        k_t1 = self.squared_exp_kernel(h, l,self.U,x_t)
-#
-
-
-        if (it == 0):
-
-
-            self.C_t1 = K_ux @ delta @ Y_data
-            #self.B_λk = np.linalg.pinv(K_uu + σ **(-2) * (λ * (K_ux @ delta @ K_xu) ))
-            self.KK = (K_ux @ delta @ K_xu)
-            print('it = 00')
-
-        #    print('calculate C')
-        #self.C_t1 = ( λ * K_ux @ delta @ Y_data + np.transpose(k_t1)*y_t)
-
-
-
-        self.C_t1 = λ *  self.C_t1 + k_t1 @ y_t
-        #self.C_t1 = self.C_t1
-        #self.C_t1 = λ * K_ux @ delta @ Y_data + np.transpose(k_t1) * y_t
-
-        self.KK = λ * self.KK + k_t1 @ np.transpose(k_t1)   #calculate KK_t+1 =  λ KK_t + k_uxt * np.transpose(Kuxt))
-
-
-        B_λt1 = np.linalg.inv(K_uu + σ **(-2) * (self.KK ))          #eq. 18
-
-        mu_λs = σ **(-2) * np.transpose(K_us) @ (B_λt1)@ ( self.C_t1)
-        var_λs = K_ss + K_su@ ((B_λt1)- np.linalg.pinv(K_uu))@K_us
-
-
-        #Add new inducing point
+        ###################################
+        # PART2: Add new inducing point
+        ###################################
         R_tot = 0
         #Check if inducing point is needed\
-        for td in range(T):
-            k_tdtd = self.squared_exp_kernel(h, l, X_data[td].reshape(1, 1), X_data[td].reshape(1, 1))
-            #k_tdu = self.squared_exp_kernel(h, l, X_data[td].reshape(1, 1), U)
-            k_utd = self.squared_exp_kernel(h, l, self.U, X_data[td].reshape(1, 1))
+        for td in range(self.T):
+            k_tdtd = self.squared_exp_kernel(self.h, self.l, self.X_data[td].reshape(1, 1), self.X_data[td].reshape(1, 1))
+            k_tdu = self.squared_exp_kernel(self.h, self.l, self.X_data[td].reshape(1, 1), self.U)
+            k_utd = self.squared_exp_kernel(self.h, self.l, self.U, self.X_data[td].reshape(1, 1))
+            K_uu =  self.squared_exp_kernel(self.h, self.l, self.U, self.U)
             #R_m = λ **(T-td) * k_tdm@ np.linalg.pinv(K_mm) @k_mtd
-            R_tot = R_tot + λ ** (T - td) * (k_tdtd - np.transpose(k_utd) @ np.linalg.pinv(K_uu) @ k_utd)
-       # M = len(U)
-       # for m in M:
-       #     R_tot = R_m
-
-
+            R_tot = R_tot + self.λ ** (self.T - td) * (k_tdtd - np.transpose(k_utd) @ np.linalg.pinv(self.K_uu) @ k_utd)
 
         flag = 0
+
         if (R_tot > 0 and flag):
-            u_k1= x_t.reshape(1, 1)
+
+
+            #TODO implement this for variance calculation
             # Add new inducing point
-            #print('add new inducing point')
-            #print('lengh U', len(U))
+            print('add new inducing point')
+            #A = np.transpose(self.squared_exp_kernel(h, l,X_test, u_k1))
+            #K_su_k1 = np.hstack([K_su, self.squared_exp_kernel(h, l,X_test, u_k1)])
+            #K_xx_t1 = np.hstack([K_xx, self.squared_exp_kernel(h, l,X_data, u_k1)])
+            #K_uu_k1 = np.hstack([K_uu, self.squared_exp_kernel(h, l, self.U, u_k1)])
+           # a = np.hstack([self.squared_exp_kernel(h, l, u_k1, self.U), self.squared_exp_kernel(h, l, u_k1, u_k1)])
+           # K_uu_k1 = np.vstack([K_uu_k1, a])
 
-
-            A = np.transpose(self.squared_exp_kernel(h, l,X_test, u_k1))
-            K_su_k1 = np.hstack([K_su, self.squared_exp_kernel(h, l,X_test, u_k1)])
-            K_us_k1 = np.vstack([K_us, self.squared_exp_kernel(h, l,u_k1, X_test)])
-
-            K_xx_t1 = np.hstack([K_xx, self.squared_exp_kernel(h, l,X_data, u_k1)])
-
-
-
-            # Add to K_uu
-            K_uu_k1 =  np.hstack([K_uu, self.squared_exp_kernel(h, l,self.U, u_k1)])
-            K_uu_k1 = np.hstack([K_uu, self.squared_exp_kernel(h, l, self.U, u_k1)])
-            a = np.hstack([self.squared_exp_kernel(h, l, u_k1, self.U), self.squared_exp_kernel(h, l, u_k1, u_k1)])
-            K_uu_k1 = np.vstack([K_uu_k1, a])
-
-            #calculate new B_λ_k1
-
-            #
-            #print('lenghth U ', len(self.U))
-            #if it != 10000 :
-            #   self.U = np.delete(self.U, 0)
-            #   self.U = self.U.reshape(len(self.U), 1)
-
-
-               #self.U = np.vstack([self.U, u_k1])
-               #print('lenghth U ', len(self.U))
-               #print('add one!')
-               #print('u_k',u_k1)
-
-            K_us = self.squared_exp_kernel(h, l, self.U, X_test)
-            K_us_k1 = np.vstack([K_us, self.squared_exp_kernel(h, l,u_k1, X_test)])
-
-
-
-
-
-            K_ux = self.squared_exp_kernel(h, l,self.U, X_data)
-            K_xu = self.squared_exp_kernel(h, l,X_data,self.U)
-
-            K_ux_k1 = np.vstack([K_ux, self.squared_exp_kernel(h, l, u_k1,X_data)])
-
-           # print('self.B_λk ',len(self.B_λk))
-
-            k_xt1x = self.squared_exp_kernel(h, l,u_k1, X_data)
-
+            # terms for b1 and b2 calculation (non iterative)
             k_xxt1 = self.squared_exp_kernel(h, l,X_data, u_k1)
-            #print('k_xxt1 ',k_xxt1)
-            #print('K_uxk1',K_uxk1)
-            #print('k_k1k1',k_k1k1)
             k_k1k1 = self.squared_exp_kernel(h, l,u_k1, u_k1)
             K_uxk1 = self.squared_exp_kernel(h, l,self.U, u_k1)
-            b1_k1 = K_uxk1 + σ**-2 * K_ux @ delta @k_xxt1
+
+            b1_k1 = self.K_uxk1 + σ**-2 * self.K_ux_k1 @ delta @k_xxt1
             b2_k1 = k_k1k1 + σ**-2 *np.transpose(k_xxt1)@delta@k_xxt1
 
-
-            K_uu = self.squared_exp_kernel(h, l,self.U, self.U)
-            K_ux = self.squared_exp_kernel(h, l,self.U, X_data)
-            K_xu = self.squared_exp_kernel(h, l, X_data,self.U)
-            k_t1 = self.squared_exp_kernel(h, l, self.U,x_t)
-
-            self.B_λk = np.linalg.pinv(K_uu + σ ** (-2) * (λ * (K_ux @ delta @ K_xu) +
-                                                     k_t1 @ np.transpose(k_t1)))
-            #self.B_λk = np.linalg.pinv(K_uu + σ ** (-2) * ((K_ux @ delta @ K_xu)))
-
-            B_A1 = np.vstack([np.linalg.pinv(self.B_λk) , np.transpose(b1_k1)] )
+            B_A1 = np.vstack([np.linalg.pinv(self.B_λ) , np.transpose(b1_k1)] )
             B_A2 = np.vstack([b1_k1,b2_k1] )
 
-            B_λk1 = np.hstack([B_A1, B_A2])
-            B_λk1 = np.linalg.pinv(B_λk1)
-            self.B_λk = np.array(len(B_λk1)-1)
-            self.B_λk = B_λk1
-            #X_data = np.vstack([X_data,u_k1])
-            #Y_data = np.vstack([Y_data, gen_sine(X_data,f=1, mean=0)])
-            #U = np.vstack([U,u_k1])
+            self.B_λ = np.linalg.pinv(np.hstack([B_A1, B_A2]))
 
-            #delta = np.zeros((len(X_data), len(X_data)))
-            #for i in range(len(X_data)):
-            #    delta[i, i] = λ ** (len(X_data) - i)
+            self.K_us_k1 = np.vstack([self.K_us_k1, self.squared_exp_kernel(h, l, u_k1, X_test)])
+            self.K_ux_k1 = np.vstack([self.K_ux_k1, self.squared_exp_kernel(h, l, u_k1, X_data)])
 
-           # mu_λs = σ ** (-2) * K_su @ (B_λ) @ (λ * (K_ux @ delta @ Y_data) + np.transpose(k_t1) * y_t)
-            #mu_λs_k1 = σ ** (-2) * np.transpose(K_us_k1) @ B_λk1 @ (K_ux_k1 @ delta @ Y_data)
+            # TODO: calculate more effeceintly using properties of block inversion
 
-            #if (it == 0):
-            #    self.C_t1 = K_ux @ delta @ Y_data
+            self.K_uxk1 = np.vstack([self.K_uxk1, self.squared_exp_kernel(h, l, u_k1, u_k1)])
 
-            #self.C_t1 = (λ * np.transpose(K_us_k1) @ delta @ Y_data + np.transpose(k_t1) * y_t)
-            #mu_λs_k1 = σ ** (-2) * np.transpose(K_us_k1) @ self.B_λk @  self.C_t1
-            mu_λs_k1 = σ ** (-2) * np.transpose(K_us_k1) @ self.B_λk @ K_ux_k1 @ delta @ Y_data
+            self.C_t1 = np.vstack([self.C_t1,  self.squared_exp_kernel(h, l, u_k1, X_data)
+                                   @ delta @ Y_data])
 
-            #self.C_t1
+            a1= self.squared_exp_kernel(h, l, u_k1, X_data) @ \
+                delta @ self.squared_exp_kernel(h, l, X_data, self.U)
+            a2 = self.squared_exp_kernel(h, l, self.U, X_data) @ \
+                 delta @ self.squared_exp_kernel(h, l, X_data, u_k1)
+            a3 = self.squared_exp_kernel(h, l, u_k1, X_data) @ \
+                 delta @ self.squared_exp_kernel(h, l, X_data, u_k1)
+
+            A = np.vstack([self.KK,a1])
+            B = np.vstack([a2,a3])
+            self.KK = np.hstack([A,B])
+
+            au1 = self.squared_exp_kernel(h, l, u_k1, self.U)
+            au2 = self.squared_exp_kernel(h, l, self.U, u_k1)
+            au3 = self.squared_exp_kernel(h, l, u_k1, u_k1)
+
+            Au = np.vstack([self.K_uu_k1, au1])
+            Bu = np.vstack([au2, au3])
+            self.K_uu_k1 = np.hstack([Au, Bu])
+            print('l U', len(self.U))
+            self.k_t1 =  np.vstack([self.k_t1, self.squared_exp_kernel(h, l, u_k1, x_t)])
+            mu_λs_k1 = σ ** (-2) * np.transpose(self.K_us_k1) @ self.B_λ @ self.C_t1
+
             #     var_λs_k1 = K_ss + K_su_k1 @ ((B_λk1) - np.linalg.pinv(K_uu_k1)) @ K_us_k1
 
 
-
-        return  mu_λs, var_λs
-
-       # return mu_λs_k1, var_λs
+        return mu_λs, 0.0
