@@ -29,7 +29,7 @@ if __name__ == '__main__':
    h_0 = 1 #initializaton of scaling param
    l_0 = [1] #initializaton of time-scale param
    σ = 0.0001
-   λ = 0.5
+   λ = 0.97
    R_th = 0.0001
    delta = np.zeros((n,n))
    for j in range(n):
@@ -59,12 +59,14 @@ if __name__ == '__main__':
    y_t = gen_sine(x_t, f=1, mean=0)
    U_n = U
    U_n = U
-   count =1
+   count = 1
    dx = 0.2
 
 
    #print('delta', delta)
    U_0 = U
+   X_test = x_t + 1
+   X_test = X_test.reshape(1, 1)
    as_gp = Adaptive_Sparse_GPR(h_0, l_0, X_data, Y_data, U_0, X_test,σ, λ, delta,R_th)
    for it in range(1000):
        x_t = x_t + dx
@@ -82,9 +84,9 @@ if __name__ == '__main__':
        #X_test = np.delete(X_test, 0)
 
        #X_test = X_test.reshape(len(X_test), 1)
-       X_test = x_t +1
+       X_test = x_t +0.1
        g_t = gen_sine(X_test, f=1, mean=0)
-       g_t = g_t.reshape(1, 1)
+       g_t = g_t.reshape(len(X_test), 1)
        start_time1 = time.time()
        [mu_λs, var_λs] = as_gp.fast_adaptive_gp(y_t, x_t, X_test, it)
        end_time1 = time.time()
@@ -100,7 +102,7 @@ if __name__ == '__main__':
        plot_static(X_data, Y_data, X_test, mu_λs, var_λs, U_n, Y_U,x_t,y_t,color_p='black')
 
        start_time2 = time.time()
-       [mu_λs, var_λs] = as_gp.basic_gp(Y_data_n, X_data_n, X_test)
+       #[mu_λs, var_λs] = as_gp.basic_gp(Y_data_n, X_data_n, X_test)
        end_time2 = time.time()
 
        # The differnce is the elapsed time
@@ -113,7 +115,7 @@ if __name__ == '__main__':
        print("Elapsed time:" ,elapsed_time2," seconds")
 
 
-       plot_static(X_data, Y_data, X_test, mu_λs, var_λs, U_n, Y_U,x_t,y_t,color_p='green')
+       #plot_static(X_data, Y_data, X_test, mu_λs, var_λs, U_n, Y_U,x_t,y_t,color_p='green')
 
    plt.show()
 
