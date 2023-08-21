@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Gaussian-Process-Regression-Tutorial.iml" filepath="$PROJECT_DIR$/.idea/Gaussian-Process-Regression-Tutorial.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/Gaussian-Process-Regression.iml" filepath="$PROJECT_DIR$/.idea/Gaussian-Process-Regression.iml" />
     </modules>
   </component>
 </project>
