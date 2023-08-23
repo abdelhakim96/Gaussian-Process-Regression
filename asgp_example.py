@@ -40,7 +40,7 @@ if __name__ == '__main__':
    h_0 = 1 #initializaton of scaling param
    l_0 = [1] #initializaton of time-scale param
    σ = 0.0001
-   λ = 1
+   λ = 0.9
    R_th = 0.0001
    delta = np.zeros((n,n))
    for j in range(n):
@@ -52,6 +52,7 @@ if __name__ == '__main__':
    X_data = np.linspace(t_start,t_end,n)
    X_data = X_data.reshape(n, 1)
    X_data_n =X_data
+   X_data_n1 = X_data
    x_t=0
    X_test = np.linspace(t_start + x_t, t_end + pred_h + x_t, n_test)
    X_test = X_test.reshape(n_test, 1)
@@ -64,7 +65,7 @@ if __name__ == '__main__':
    for i in range(500):
        t= t+0.01
        amp = 1+(2/300)*t
-       if i<300:
+       if i<200:
 
           #Y_data_syn[i] = gen_sine(i, f=4, mean=mean_sig,A=amp, noise=0)
           #Y_data_syn[i] = gen_sine(i, f=1, mean=mean_sig, A=amp, noise=0)
@@ -74,6 +75,7 @@ if __name__ == '__main__':
           Y_data_syn[i] = gen_sine(t, f=8, mean=mean_sig, A=1, noise=0)
    Y_data = Y_data_syn[0:100]
    Y_data_n =Y_data
+   Y_data_n1 = Y_data
    U = np.linspace(t_start,t_end,n_ind)
    U = U.reshape(n_ind, 1)
 
@@ -144,10 +146,13 @@ if __name__ == '__main__':
        end_time1 = time.time()
        #[mu_λs, var_λs] = as_gp.basic_gp(Y_data_n, X_data_n, X_test)
        Y_data_n = np.append(Y_data_n, y_t)
+       Y_data_n1 = np.append(Y_data_n1, y_t)
        Y_data_n = np.delete(Y_data_n, 0)
        Y_data_n = Y_data_n.reshape(len(Y_data_n), 1)
 
        X_data_n = np.append(X_data_n, x_t)
+       X_data_n1 = np.append(X_data_n1, x_t)
+       X_data_n1 = X_data_n1.reshape(len(X_data_n1), 1)
        X_data_n = np.delete(X_data_n, 0)
        X_data_n = X_data_n.reshape(len(X_data_n), 1)
        U = np.linspace(X_data_n[0], X_data_n[len(X_data_n)-1], n_ind)
@@ -178,7 +183,7 @@ if __name__ == '__main__':
        end_time3 = time.time()
 
 
-       plot_static(X_data_n, Y_data_n, X_test, mu_λs, var_λs*0, R_tot ,R_m,U_gp*0.0, Y_U,x_t,y_t,'red',g_t,
+       plot_static(X_data_n1, Y_data_n1, X_test, mu_λs, var_λs*0, R_tot ,R_m,U_gp*0.0, Y_U,x_t,y_t,'red',g_t,
                    'Sparse VFE gp',clear_plt,moving,Y_data_syn,X_data_syn)
 
        elapsed_time1 = end_time1 - start_time1
